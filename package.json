@@ -1,0 +1,68 @@
+{
+  "name": "apis",
+  "version": "1.0.0",
+  "description": "Node.js api's",
+  "scripts": {
+    "start:principal": "node ./micro_services/micro_service_apis/server.js",
+    "start:clientes": "node ./micro_services/micro_service_apis_clientes/server.js",
+    "start:digitalsaude": "node ./micro_services/micro_service_apis_digital_saude/server.js",
+    "start:swile": "node ./micro_services/micro_service_apis_swile/server.js",
+    "build:campaign": "tsc -p ./micro_services/micro_service_apis_campaign",
+    "start:campaign": "node ./micro_services/micro_service_apis_campaign/dist/server.js",
+    "start:cron": "node ./cron/cronServer.js",
+    "start:worker:push": "node ./workers/push/pushWorker.js",
+    "build:worker:campaign": "tsc -p ./micro_services/micro_service_apis_campaign",
+    "start:worker:campaign": "node ./micro_services/micro_service_apis_campaign/dist/infrastructure/queue/workers/campaign.worker.js",
+    "start:bullboard": "node ./dashboard/bullBoard.js",
+    "testar-push": "node ./micro_services/micro_service_apis_clientes/testarPushBoletos.js",
+    "test:cron:swile": "node ./micro_services/micro_service_apis_swile/testarCronSwile.js"
+  },
+  "keywords": [
+    "node.js",
+    "express",
+    "jwt",
+    "authentication",
+    "mysql"
+  ],
+  "author": "Gustavo DS",
+  "license": "ISC",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "dependencies": {
+    "@google/maps": "^1.1.3",
+    "@img/sharp-win32-x64": "^0.33.3",
+    "@wppconnect-team/wppconnect": "^1.30.2",
+    "axios": "^1.6.8",
+    "axios-oauth-client": "^2.2.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "bull": "^4.16.5",
+    "bull-board": "^2.1.3",
+    "bullmq": "^5.52.2",
+    "cors": "^2.8.5",
+    "cron": "^3.2.1",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.4",
+    "excel-date-to-js": "^1.1.5",
+    "express": "^4.18.2",
+    "fs": "0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.30.1",
+    "moment-timezone": "^0.5.48",
+    "morgan-body": "^2.6.9",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^2.2.5",
+    "node-fetch": "^2.7.0",
+    "node-xlsx": "^0.23.0",
+    "nodemailer": "^6.9.14",
+    "sequelize": "^6.37.0",
+    "sharp": "^0.33.3",
+    "shortid": "^2.2.16",
+    "swagger-ui-express": "^5.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}

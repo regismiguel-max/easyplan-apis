@@ -1,0 +1,76 @@
+# Diretórios de dependências
+node_modules/
+**/node_modules/
+
+# Build e arquivos temporários
+dist/
+build/
+.tmp/
+*.log
+
+# Configurações do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de ambiente
+.env
+**/.env
+.env.*
+
+# Certificados SSL
+sslcert/
+*.crt
+*.key
+*.pem
+
+# Uploads e arquivos enviados
+uploads/
+**/uploads/
+
+# Logs
+logs/
+**/logs/
+*.log
+
+# Banco de dados temporários (caso existam)
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+
+# Cache e arquivos de IDEs
+.vscode/
+.idea/
+*.swp
+
+# Arquivos de debug ou crash
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PM2 / Process Manager
+pids/
+*.pid
+*.seed
+ecosystem.config.js
+process.json
+
+# Sessões
+sessions/
+*.session
+
+# Arquivos do sistema operacional
+ehthumbs.db
+desktop.ini
+
+# Windows
+*.lnk
+
+# Redis (dados persistentes e dumps)
+dump.rdb
+appendonly.aof
+nodes.conf
+
+# Bull (caso use armazenamento em disco para jobs ou logs temporários)
+bull-queue-*
+bull-board-logs/
