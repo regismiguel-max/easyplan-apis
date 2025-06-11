@@ -489,26 +489,21 @@ sendMessageSarah = async (req, res) => {
                     apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
                     number: element.number,
                     country: "+55",
-                    text: `Olá ${element.name}, tudo bem? Esperamos que sim.
+                    text: `Olá, ${element.name}! Tudo bem?
 
-Identificamos que sua fatura do plano de saúde está em atraso. Sabemos que imprevistos podem acontecer e, por isso, reforçamos a importância de manter o plano ativo para garantir o acesso contínuo aos serviços e coberturas contratadas.
+Notamos pendências no seu plano de saúde e queremos ajudar você a regularizar da forma mais fácil.
 
-Caso tenha realizado o pagamento hoje, por favor, desconsidere esta mensagem.
-Se ainda não conseguiu pagar, estamos aqui para ajudar! Podemos te enviar a segunda via do boleto e verificar a melhor forma de regularizar a situação.
+Responda por aqui para negociar. Se o plano não está atendendo suas necessidades, fale com a gente — podemos buscar uma solução melhor para você.
 
-Acesse seu boleto aqui: https://clientes.easyplan.com.br - Se não tem cadastro, realize o "Primeiro Acesso".
+Lembre-se que, para evitar o cancelamento, é importante manter os pagamentos em dia.
 
-⚠️ Atenção: devido à alta demanda, nosso tempo de resposta está acima do normal, podendo ultrapassar 24h. Mas não se preocupe: todas as mensagens estão sendo respondidas em ordem de chegada. Pode demorar um pouco, mas você será atendido(a).
+Estamos à disposição para ajudar!
 
-Conte com a Easyplan!
-
-Canais de atendimento:
-Atendimento ao beneficiário - 614003-7172 (ligações)
-Whatsapp: 114003-7172
-E-mail: atendimento@easyplan.com.br
+EasyPlan
+Ligação: 61 4003-7172
 `,
-                    campaignName: "Inadimplências Maio 2025",
-                    extData: "Inadimplências Maio 2025",
+                    campaignName: "Inadimplências Junho 2025",
+                    extData: "Inadimplências Junho 2025",
                     extFlag: 1,
                     hidden: false
                 });
