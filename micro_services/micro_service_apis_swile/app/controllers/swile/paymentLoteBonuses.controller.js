@@ -195,7 +195,7 @@ exports.orderSummary = async (request_ID, resend) => {
             const wallet = walletMap.get(cpf);
             if (!wallet || Number(wallet.saldoDisponivel) <= 0) return;
 
-            totalBonificacoes += wallet.saldoDisponivel;
+            totalBonificacoes += Number(wallet.saldoDisponivel);
 
             const formattedCPF = cpf.replace(/\D/g, '')
                 .replace(/(\d{3})(\d)/, '$1.$2')
@@ -289,7 +289,7 @@ paymentsBonuses = async (token, lotePay, totalBonificacoes, request_ID, SwileReq
                 dataSolicitação: new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toJSON()
             },
             wallet_quantidade: lotePay.length,
-            wallet_totalBonificacoes: String(Number(totalBonificacoes).toFixed(2))
+            wallet_totalBonificacoes: String(Number(lobo.totalBonificacoes).toFixed(2))
         };
 
         let pay;
