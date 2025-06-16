@@ -491,19 +491,34 @@ sendMessageSarah = async (req, res) => {
                     country: "+55",
                     text: `Olá, ${element.name}! Tudo bem?
 
-Notamos pendências no seu plano de saúde e queremos ajudar você a regularizar da forma mais fácil.
+🚨 Nova Oferta de Plano da Easyplan 🚨
 
-Responda por aqui para negociar. Se o plano não está atendendo suas necessidades, fale com a gente — podemos buscar uma solução melhor para você.
+Titular: ${element.name}
 
-Lembre-se que, para evitar o cancelamento, é importante manter os pagamentos em dia.
+Você recebeu por e-mail uma nova opção de plano de saúde com mais benefícios, melhor rede credenciada e sem burocracia!
 
-Estamos à disposição para ajudar!
+✔️ Sem novas carências
 
-EasyPlan
-Ligação: 61 4003-7172
+✔️ Menor valor
+
+✔️ Rede credenciada ampliada
+
+✔️ Reajuste só em abril/26
+
+✔️ Mesmos dias de vigência e vencimento
+
+📅 Para aderir, basta pagar o boleto de julho/25, que estará disponível em breve. Lembrando que as faturas anteriores devem estar quitadas.
+
+👉 Confira todos os detalhes no e-mail que te enviamos!
+
+📌 Importante: essa nova oferta surgiu após o reajuste de 37,55% anunciado pela Klini, aplicado a partir de julho/25.
+
+   
+
+📩 Dúvidas? Responda por aqui mesmo ou envie e-mail para: relacionamento@easyplan.com.br
 `,
-                    campaignName: "Inadimplências Junho 2025",
-                    extData: "Inadimplências Junho 2025",
+                    campaignName: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",
+                    extData: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",
                     extFlag: 1,
                     hidden: false
                 });
