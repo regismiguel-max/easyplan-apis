@@ -1,5 +1,5 @@
 {
-  "compilerOptions": {
+"compilerOptions": {
     "target": "es2016",
     "module": "commonjs",
     "rootDir": "src",
@@ -10,8 +10,8 @@
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
-  },
-  "include": [
+},
+"include": [
     "src/**/*"
-  ]
+]
 }
