@@ -1,5 +1,5 @@
-import { ActiveFiltersValues, ActiveFilterKey } from "../entities/interfaces/email-campaign/filters-to-save.interface";
-import { BooleanFiltersFlags, FilterValues } from "../types/email-campaign-create.types";
+import { ActiveFiltersValues, ActiveFilterKey } from "../entities/interfaces/filters-to-save.interface";
+import { BooleanFiltersFlags, FilterValues } from "../entities/interfaces/campaign-create.interface";
 
 export default class FiltersVO {
     public filterValues: FilterValues;
@@ -47,8 +47,12 @@ export default class FiltersVO {
                 case 'uf':
                     activeFiltersValues.uf = this.filterValues.uf;
                     break;
-                case 'ageRange': 
-                    activeFiltersValues.ageRange = this.filterValues.ageRange;
+                case 'ageRange':
+                    const [min, max] = this.filterValues.ageRange;
+
+                    if(min === null || max === null){ throw new Error('Filtro ageRange está ativo, mas os valores não foram preenchidos.'); }
+                    
+                    activeFiltersValues.ageRange = [min, max];
                     break;
                 case 'validity':
                     activeFiltersValues.validity = this.filterValues.validity;

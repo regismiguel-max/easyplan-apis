@@ -1,11 +1,5 @@
-import {
-  DataTypes,
-  Optional,
-  Model,
-} from "sequelize";
+import { DataTypes } from "sequelize";
 import connection_db from "../../database/config/database";
-import { EmailCampaignStatus } from "../../../domain/types/email-status.types";
-import EmailTemplateModel from "./email-template.model";
 
 const ClientModel = connection_db.define(
   "ClientModel",

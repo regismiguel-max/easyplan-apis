@@ -1,5 +1,5 @@
-import CRUDEmailCampaignDTO from "../../../presentation/dtos/email-campaign/input/crud-email-campaign.dto";
+import CRUDCampaignDTO from "../../../presentation/dtos/crud-campaign.dto";
 
 export default interface ISendCampaignUseCase {
-    execute(dto: CRUDEmailCampaignDTO): Promise<void | string>;
+    execute(dto: CRUDCampaignDTO): Promise<void | string>;
 }

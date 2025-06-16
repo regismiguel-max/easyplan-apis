@@ -1,6 +1,6 @@
 import { DataTypes } from "sequelize";
 import connection_db from "../../config/database";
-import EmailCampaignModel from "../email-campaign.model";
+import CampaignModel from "../campaign.model";
 
 const AgeRangeModel = connection_db.define(
     'AgeRangeModel',
@@ -18,17 +18,17 @@ const AgeRangeModel = connection_db.define(
             type: DataTypes.INTEGER,
             allowNull: false
         },
-        emailCampaignId: {
+        campaignId: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: EmailCampaignModel,
+                model: CampaignModel,
                 key: 'id'
             }
         }
     },
     {
-        tableName: 'cliente_campanha_email_age_ranges',
+        tableName: 'cliente_campanha_campaign_age_ranges',
         timestamps: true
     }
 )

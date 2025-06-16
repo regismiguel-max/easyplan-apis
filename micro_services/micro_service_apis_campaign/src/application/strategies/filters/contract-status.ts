@@ -1,25 +1,25 @@
 import { Op, WhereOptions } from "sequelize";
 import IFilterStrategy from "../../../domain/contracts/strategies/IFilterStrategy";
-import IEmailFiltersRepository from "../../repositories-interfaces/email-filters.repository";
+import IFiltersRepository from "../../../domain/contracts/repositories/IFiltersRepository";
 import ContractStatusEmailAssociation from "../../../domain/entities/interfaces/associations/contract-status-email.interface";
 
 export class ContractStatusFilterStrategy implements IFilterStrategy {
     
-    constructor(private emailFiltersRepository: IEmailFiltersRepository) {}
+    constructor(private filtersRepository: IFiltersRepository) {}
 
     async save(campaignId: number, ids: number[]): Promise<ContractStatusEmailAssociation[]> {
-        return this.emailFiltersRepository.saveEmailContractStatus(campaignId, ids);
+        return this.filtersRepository.saveCampaignContractStatus(campaignId, ids);
     }
 
     async delete(campaignId: number) {
-        return this.emailFiltersRepository.deleteEmailContractStatus(campaignId);
+        return this.filtersRepository.deleteCampaignContractStatus(campaignId);
     }
 
     async buildWhereClause(ids: number[]): Promise<WhereOptions> {
         const status = [];
         
         for (const id of ids) {
-            const contractStatus = await this.emailFiltersRepository.getContractStatusById(id);
+            const contractStatus = await this.filtersRepository.getContractStatusById(id);
             status.push(contractStatus.status);
         }
         

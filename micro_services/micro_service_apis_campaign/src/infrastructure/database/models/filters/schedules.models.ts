@@ -1,6 +1,6 @@
 import { DataTypes } from "sequelize";
 import connection_db from "../../config/database";
-import EmailCampaignModel from "../email-campaign.model";
+import CampaignModel from "../campaign.model";
 
 
 const EmailScheduleModel = connection_db.define(
@@ -23,7 +23,7 @@ const EmailScheduleModel = connection_db.define(
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: EmailCampaignModel,
+                model: CampaignModel,
                 key: 'id'
             }
         }

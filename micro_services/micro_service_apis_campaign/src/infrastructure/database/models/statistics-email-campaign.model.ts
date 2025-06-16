@@ -1,6 +1,6 @@
 import { DataTypes, Optional, Model } from "sequelize";
 import connection_db from "../config/database";
-import EmailCampaignModel from "./email-campaign.model";
+import CampaignModel from "./campaign.model";
 
 
 interface StatisticsEmailCampaignAttributes {
@@ -47,7 +47,7 @@ const StatisticsEmailCampaignModel = connection_db.define<Model<StatisticsEmailC
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: EmailCampaignModel,
+                model: CampaignModel,
                 key: 'id'
             }
         },

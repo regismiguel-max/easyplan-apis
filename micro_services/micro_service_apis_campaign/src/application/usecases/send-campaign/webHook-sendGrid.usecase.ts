@@ -1,15 +1,13 @@
-import EmailCampaignRepository from "../../../infrastructure/repositories/email-campaign.repository";
-import { createClient } from 'redis';
+import CampaignRepository from "../../../infrastructure/repositories/campaign.repository";
 import EmailCampaignStatisticsService from "../../../infrastructure/services/email-campaign-statistics.service";
-
-const clientRedis = createClient().on('error', err => console.log('Redis Client Error', err)).connect();
+import { redisClient } from "../../../infrastructure/database/config/redis.config";
 
 const EXPIRATION_SECONDS = 7 * 24 * 60 * 60;
 
 export default class WebHookSendGridUseCase {
     private statisticsService: EmailCampaignStatisticsService;
 
-    constructor(private emailCampaignRepository: EmailCampaignRepository) {
+    constructor(private campaignRepository: CampaignRepository) {
         this.statisticsService = new EmailCampaignStatisticsService();
     }
 
@@ -39,7 +37,7 @@ export default class WebHookSendGridUseCase {
                 }
 
                 // Gerar ID único para o evento
-                const eventId = `${event.nomeCampanha}:${event.idCampanha}:${event.event}:${event.email}:${event.sg_message_id}`;
+                const eventId = `${campaignId}:${eventType}:${email}:${messageId}`;
                 const redisKey = `sendgrid:event:${eventId}`;
 
                 console.log('O id do evento gerado: ', eventId);
@@ -47,7 +45,7 @@ export default class WebHookSendGridUseCase {
                 console.log(`Processando evento: ${eventType} para campanha ${campaignId}, email ${email}`);
 
                 // Verificar se o evento já foi processado (usando Redis)
-                const exists = await (await clientRedis).exists(redisKey);
+                const exists = await redisClient.exists(redisKey);
                 if (exists === 1) {
                     console.log(`Evento duplicado detectado: ${eventId}`);
                     duplicateEventsCount++;
@@ -77,7 +75,7 @@ export default class WebHookSendGridUseCase {
                 await this.statisticsService.processEvent(campaignId, eventType, timestamp);
                 
                 // Marcar o evento como processado no Redis
-                await (await clientRedis).set(redisKey, '1', {EX: EXPIRATION_SECONDS});
+                await redisClient.set(redisKey, '1', {EX: EXPIRATION_SECONDS});
                 
                 console.log(`Evento processado com sucesso: ${eventType} para campanha ${campaignId}`);
                 newEventsCount++;

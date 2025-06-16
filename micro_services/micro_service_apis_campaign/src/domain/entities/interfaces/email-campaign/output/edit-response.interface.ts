@@ -6,10 +6,11 @@ import Plan from "../../filters/plan.interface";
 import Uf from "../../filters/uf.interface";
 import Validity from "../../filters/validity.interface";
 import FiltersProcessed from "./process-filter.interface";
-import RecipientGroup from "../recipient-group.interface";
+import RecipientGroup from "../../recipient-group.interface";
 
 export default interface EditResponse {
-    updatedResponse: string;
+    campaignUpdated: string;
+    typeCampaign: string;
     ageRange?: AgeRange | null;
     contractStatus?: ContractStatus | null;
     operator?: Operator | null;

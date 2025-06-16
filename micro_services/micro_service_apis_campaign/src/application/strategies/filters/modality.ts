@@ -1,24 +1,24 @@
 import { Op } from "sequelize";
 import IFilterStrategy from "../../../domain/contracts/strategies/IFilterStrategy";
-import IEmailFiltersRepository from "../../repositories-interfaces/email-filters.repository";
+import IFiltersRepository from "../../../domain/contracts/repositories/IFiltersRepository";
 
 export class ModalityFilterStrategy implements IFilterStrategy {
     
-    constructor(private emailFiltersRepository: IEmailFiltersRepository) {}
+    constructor(private filtersRepository: IFiltersRepository) {}
 
     async save(campaignId: number, ids: number[]): Promise<any> {
-        return this.emailFiltersRepository.saveEmailModality(campaignId, ids);
+        return this.filtersRepository.saveCampaignModality(campaignId, ids);
     }
 
     async delete(campaignId: number) {
-        return this.emailFiltersRepository.deleteEmailModality(campaignId);
+        return this.filtersRepository.deleteCampaignModality(campaignId);
     }
 
     async buildWhereClause(ids: number[]): Promise<any> {
         const modalityDescricao = [];
         
         for (const id of ids) {
-            const modality = await this.emailFiltersRepository.getModalityById(id);
+            const modality = await this.filtersRepository.getModalityById(id);
             modalityDescricao.push(modality.descricao_modalidade);
         }
         

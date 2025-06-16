@@ -1,7 +1,7 @@
 import { Op, WhereOptions } from "sequelize";
 import IFilterService from "../../domain/contracts/service/IFilterService";
 import FilterStrategyFactory from "../strategies/filter-strategy.factory";
-import { ActiveFilterKey, ActiveFiltersValues } from "../../domain/entities/interfaces/email-campaign/filters-to-save.interface";
+import { ActiveFilterKey, ActiveFiltersValues } from "../../domain/entities/interfaces/filters-to-save.interface";
 import FiltersProcessed, { FilterProcessResponse } from "../../domain/entities/interfaces/email-campaign/output/process-filter.interface";
 // import IFilterService from "../../domain/contracts/services/IFilterService";
 // import { WhereClause } from "../../domain/valueObjects/WhereClause";

@@ -1,4 +1,4 @@
-import { Periodicity } from "../enums/email-periodicity.types";
+import { Periodicity } from "../enums/email-periodicity.enum";
 
 export default class Schedule {
     public readonly doSchedule: boolean;

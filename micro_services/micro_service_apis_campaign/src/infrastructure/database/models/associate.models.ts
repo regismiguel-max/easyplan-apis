@@ -1,12 +1,7 @@
 // associate.ts
-import EmailTemplateModel from './email-template.model';
-import EmailCampaignModel from './email-campaign.model';
+import CampaignTemplateModel from './template.model';
+import CampaignModel from './campaign.model';
 import StatisticsEmailCampaignModel from './statistics-email-campaign.model';
-import EmailPlansModel from './associations/email-plans.model';
-import EmailOperatorsModel from './associations/email-operators.models';
-import EmailModalityModel from './associations/email-modality.models';
-import EmailUfsModel from './associations/email-ufs.models';
-import EmailContractStatusModel from './associations/email-contract-status.models';
 import EmailScheduleModel from './filters/schedules.models';
 import AgeRangeModel from './filters/age-range.models';
 import ValidityModel from './filters/validity.model';
@@ -16,99 +11,112 @@ import ContractStatusModel from './filters/contract-status.models';
 import ModalityModel from './filters/modality.models';
 import UfModel from './filters/uf.models';
 import RecipientGroupModel from './recipient-group.models';
+import CampaignOperatorsModel from './associations/campaign-operators.models';
+import CampaignPlansModel from './associations/campaign-plans.model';
+import CampaignContractStatusModel from './associations/campaign-contract-status.models';
+import CampaignModalityModel from './associations/campaign-modality.models';
+import CampaignUfsModel from './associations/campaign-ufs.models';
+import StatisticsWhatsCampaignModel from './statistics-whats-campaign.model';
+import CampaignMessageStatusesModel from './campaign-message-statuses.model';
 
 export function associateModels() {
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + TEMPLATE ************************/
-  EmailTemplateModel.hasMany(EmailCampaignModel, { foreignKey: 'emailTemplateId' });
-  EmailCampaignModel.belongsTo(EmailTemplateModel, { foreignKey: 'emailTemplateId' });
+  CampaignTemplateModel.hasMany(CampaignModel, { foreignKey: 'templateId' });
+  CampaignModel.belongsTo(CampaignTemplateModel, { foreignKey: 'templateId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + STATISTICS ************************/
-  StatisticsEmailCampaignModel.belongsTo(EmailCampaignModel, { foreignKey: 'emailCampaignId'});
-  EmailCampaignModel.hasOne(StatisticsEmailCampaignModel, { foreignKey: 'emailCampaignId' });
+  StatisticsEmailCampaignModel.belongsTo(CampaignModel, { foreignKey: 'emailCampaignId'});
+  CampaignModel.hasOne(StatisticsEmailCampaignModel, { foreignKey: 'emailCampaignId' });
+  //************************ RELACIONAMENTO CAMPAIGN + WHATSAPP STATISTICS ************************/
+  StatisticsWhatsCampaignModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});
+  CampaignModel.hasOne(StatisticsWhatsCampaignModel, { foreignKey: 'campaignId' });
+  //************************ RELACIONAMENTO CAMPAIGN + WHATSAPP STATUS MESSASGE ************************/
+  CampaignMessageStatusesModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});
+  CampaignModel.hasMany(CampaignMessageStatusesModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + SCHEDULE ************************/
-  EmailScheduleModel.belongsTo(EmailCampaignModel, { foreignKey: 'emailCampaignId' });
-  EmailCampaignModel.hasOne(EmailScheduleModel, { foreignKey: 'emailCampaignId' });
+  EmailScheduleModel.belongsTo(CampaignModel, { foreignKey: 'emailCampaignId' });
+  CampaignModel.hasOne(EmailScheduleModel, { foreignKey: 'emailCampaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + AGE_RANGE ************************/
-  AgeRangeModel.belongsTo(EmailCampaignModel, { foreignKey: 'emailCampaignId' });
-  EmailCampaignModel.hasOne(AgeRangeModel, { foreignKey: 'emailCampaignId' });
+  AgeRangeModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
+  CampaignModel.hasOne(AgeRangeModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + RECIPIENT_GROUP ************************/
-  RecipientGroupModel.belongsTo(EmailCampaignModel, { foreignKey: 'emailCampaignId' });
-  EmailCampaignModel.hasOne(RecipientGroupModel, { foreignKey: 'emailCampaignId' });
+  RecipientGroupModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
+  CampaignModel.hasOne(RecipientGroupModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + VALIDITY ************************/
-  ValidityModel.belongsTo(EmailCampaignModel, { foreignKey: 'emailCampaignId' });
-  EmailCampaignModel.hasOne(ValidityModel, { foreignKey: 'emailCampaignId' });
+  ValidityModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
+  CampaignModel.hasOne(ValidityModel, { foreignKey: 'campaignId' });
   
   //************************ RELACIONAMENTO OPERATOR + PLAN ************************/
   OperatorsModel.hasMany(PlansModel, { foreignKey: 'codigo_produto' });
   PlansModel.belongsTo(OperatorsModel, { foreignKey: 'codigo_produto' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + OPERATOR_FILTER ************************/
-  EmailCampaignModel.belongsToMany(OperatorsModel, { 
-    through: EmailOperatorsModel,
-    foreignKey: 'emailCampaignId',
+  CampaignModel.belongsToMany(OperatorsModel, { 
+    through: CampaignOperatorsModel,
+    foreignKey: 'campaignId',
     otherKey: 'operatorId'
   });
-  OperatorsModel.belongsToMany(EmailCampaignModel, { 
-    through: EmailOperatorsModel,
+  OperatorsModel.belongsToMany(CampaignModel, { 
+    through: CampaignOperatorsModel,
     foreignKey: 'operatorId',
-    otherKey: 'emailCampaignId'
+    otherKey: 'campaignId'
   });
   
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + PLAN_FILTER ************************/
-  EmailCampaignModel.belongsToMany(PlansModel, { 
-    through: EmailPlansModel,
-    foreignKey: 'emailCampaignId',
+  CampaignModel.belongsToMany(PlansModel, { 
+    through: CampaignPlansModel,
+    foreignKey: 'campaignId',
     otherKey: 'planId'
   });
-  PlansModel.belongsToMany(EmailCampaignModel, { 
-    through: EmailPlansModel,
+  PlansModel.belongsToMany(CampaignModel, { 
+    through: CampaignPlansModel,
     foreignKey: 'planId',
-    otherKey: 'emailCampaignId'
+    otherKey: 'campaignId'
   });
   
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + CONTRACT_STATUS_FILTER ************************/
-  EmailCampaignModel.belongsToMany(ContractStatusModel, { 
+  CampaignModel.belongsToMany(ContractStatusModel, { 
     through: {
-      model: EmailContractStatusModel,
+      model: CampaignContractStatusModel,
       unique: false
     },
-    foreignKey: 'emailCampaignId',
+    foreignKey: 'campaignId',
     otherKey: 'contractStatusId'
   });
-  ContractStatusModel.belongsToMany(EmailCampaignModel, { 
+  ContractStatusModel.belongsToMany(CampaignModel, { 
     through: {
-      model: EmailContractStatusModel,
+      model: CampaignContractStatusModel,
       unique: false
     },
     foreignKey: 'contractStatusId',
-    otherKey: 'emailCampaignId'
+    otherKey: 'campaignId'
   });
   
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + MODALITY_FILTER ************************/
-  EmailCampaignModel.belongsToMany(ModalityModel, { 
-    through: EmailModalityModel,
-    foreignKey: 'emailCampaignId',
+  CampaignModel.belongsToMany(ModalityModel, { 
+    through: CampaignModalityModel,
+    foreignKey: 'campaignId',
     otherKey: 'modalityId'
   });
-  ModalityModel.belongsToMany(EmailCampaignModel, { 
-    through: EmailModalityModel,
+  ModalityModel.belongsToMany(CampaignModel, { 
+    through: CampaignModalityModel,
     foreignKey: 'modalityId',
-    otherKey: 'emailCampaignId'
+    otherKey: 'campaignId'
   });
   
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + UF_FILTER ************************/
-  EmailCampaignModel.belongsToMany(UfModel, { 
-    through: EmailUfsModel,
-    foreignKey: 'emailCampaignId',
+  CampaignModel.belongsToMany(UfModel, { 
+    through: CampaignUfsModel,
+    foreignKey: 'campaignId',
     otherKey: 'ufId'
   });
-  UfModel.belongsToMany(EmailCampaignModel, { 
-    through: EmailUfsModel,
+  UfModel.belongsToMany(CampaignModel, { 
+    through: CampaignUfsModel,
     foreignKey: 'ufId',
-    otherKey: 'emailCampaignId'
+    otherKey: 'campaignId'
   });
 }

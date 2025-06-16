@@ -1,5 +1,5 @@
-import SendEmailDTO from "../../entities/interfaces/email-campaign/send-data.interface";
+import { SendCampaignDTO } from "../../entities/interfaces/send-data.interface";
 
 export default interface ICampaignSenderStrategy {
-    senderCampaing(data: SendEmailDTO): Promise<any>;
+    senderCampaing(data: SendCampaignDTO): Promise<any>;
 }

@@ -1,24 +1,24 @@
 import { Op, WhereOptions } from "sequelize";
 import IFilterStrategy from "../../../domain/contracts/strategies/IFilterStrategy";
-import IEmailFiltersRepository from "../../repositories-interfaces/email-filters.repository";
+import IFiltersRepository from "../../../domain/contracts/repositories/IFiltersRepository";
 import AgeRange from "../../../domain/entities/interfaces/filters/age-range.interface";
 
 export class AgeRangeFilterStrategy implements IFilterStrategy {
     
-    constructor(private emailFiltersRepository: IEmailFiltersRepository) {}
+    constructor(private filtersRepository: IFiltersRepository) {}
 
     async save(campaignId: number, ids: number[]): Promise<AgeRange> {
-        return this.emailFiltersRepository.saveEmailAgeRange(campaignId, ids);
+        return this.filtersRepository.saveCampaignAgeRange(campaignId, ids);
     }
 
     async delete(campaignId: number) {
-        return this.emailFiltersRepository.deleteEmailAgeRange(campaignId);
+        return this.filtersRepository.deleteCampaignAgeRange(campaignId);
     }
 
     async buildWhereClause(id: number): Promise<WhereOptions> {
         const ageRange = [];
         
-        const ageRangeDB = await this.emailFiltersRepository.getAgeRangeById(id);
+        const ageRangeDB = await this.filtersRepository.getAgeRangeById(id);
 
         ageRange.push(ageRangeDB.min);
         ageRange.push(ageRangeDB.max);

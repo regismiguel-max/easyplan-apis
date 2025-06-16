@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import EmailCampaignModel from "./email-campaign.model";
+import CampaignModel from "./campaign.model";
 import connection_db from "../config/database";
 
 const RecipientGroupModel = connection_db.define(
@@ -10,11 +10,11 @@ const RecipientGroupModel = connection_db.define(
         primaryKey: true,
         autoIncrement: true
     },
-    emailCampaignId: {
+    campaignId: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: EmailCampaignModel,
+            model: CampaignModel,
             key: 'id'
         }
     },
@@ -32,7 +32,7 @@ const RecipientGroupModel = connection_db.define(
     },
   },
   {
-    tableName: "cliente_campanha_email_recipient_group",
+    tableName: "cliente_campanha_campaign_recipient_group",
     timestamps: true,
   }
 );

@@ -1,4 +1,4 @@
-import EmailFiltersRepository from "../../../infrastructure/repositories/email-filters.repository";
+import filtersRepository from "../../../infrastructure/repositories/filters.repository";
 import { Model } from "sequelize";
 import IGetContractStatusesUseCase from "../../usecases-interfaces/i-get-contract-statuses.usecase";
 import ContractStatus from "../../../domain/entities/interfaces/filters/contract-status.interface";
@@ -6,11 +6,11 @@ import ContractStatus from "../../../domain/entities/interfaces/filters/contract
 export default class GetContractStatusesUseCase implements IGetContractStatusesUseCase {
 
     constructor(
-        private emailFiltersRepository: EmailFiltersRepository
+        private filtersRepository: filtersRepository
     ) {}
 
     public async execute(): Promise<ContractStatus[]> {
-        const contractStatuses = await this.emailFiltersRepository.getContractStatuses();
+        const contractStatuses = await this.filtersRepository.getContractStatuses();
 
         return contractStatuses;
     }

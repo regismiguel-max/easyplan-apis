@@ -1,23 +1,17 @@
 import sgMail, { MailDataRequired } from '@sendgrid/mail';
 import * as dotenv from 'dotenv';
 import ICampaignSenderStrategy from '../../domain/contracts/service/ICampaingSenderStrategy';
-import StatisticsEmailCampaignRepository from '../repositories/statistics-email-campaign.repository';
-import EmailCampaignRepository from '../repositories/email-campaign.repository';
-import { EmailCampaignStatus } from '../../domain/types/email-status.types';
-import SendEmailDTO from '../../domain/entities/interfaces/email-campaign/send-data.interface';
+import { SendEmailCampaignDTO } from '../../domain/entities/interfaces/send-data.interface';
 
 dotenv.config();
 export default class EmailCampaignSender implements ICampaignSenderStrategy {
-  private apiKey: string | undefined = process.env.SENDGRID_API_KEY;
-  // private emailCampaignRepository: EmailCampaignRepository;
-  private emailCampaignRepository = new EmailCampaignRepository();
-  private statisticsRepository = new StatisticsEmailCampaignRepository();
+  private apiKey: string | undefined = process.env.CAMPAIGN_SENDGRID_API_KEY;
 
   constructor() {
     this.setApiKey()
   }
 
-  public async senderCampaing(data: SendEmailDTO) {
+  public async senderCampaing(data: SendEmailCampaignDTO) {
     const campaignId = data.baseData.id
     const chunkIndex = data.chunkIndex
 
@@ -26,23 +20,22 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
     )
 
     // Verificação adicional de segurança
-    const uniqueEmails = [...new Set(data.recipientGroup)]
+    const uniqueEmails = [...new Set(data.recipientGroup as string[])];
+
     if (uniqueEmails.length !== data.recipientGroup.length) {
-      console.warn(
-        `⚠️ PROVIDER: Emails duplicados detectados! ${data.recipientGroup.length} total, ${uniqueEmails.length} únicos`,
-      )
+      console.warn( `⚠️ PROVIDER: Emails duplicados detectados! ${data.recipientGroup.length} total, ${uniqueEmails.length} únicos` )
       // Use apenas emails únicos para evitar duplicatas
-      data.recipientGroup = uniqueEmails
+      data.recipientGroup = uniqueEmails;
     }
 
     // Usar personalizations em vez de múltiplos emails
-    const emailData = this.buildEmailWithPersonalizations(data)
+    const emailData = this.buildEmailWithPersonalizations(data);
 
-    console.log(`📬 PROVIDER: Email construído com ${emailData.personalizations?.length} personalizações`)
-    console.log(`🎯 PROVIDER: Destinatários únicos: ${data.recipientGroup.length}`)
+    console.log(`📬 PROVIDER: Email construído com ${emailData.personalizations?.length} personalizações`);
+    console.log(`🎯 PROVIDER: Destinatários únicos: ${data.recipientGroup.length}`);
 
     try {
-      console.log(`🚀 PROVIDER: Enviando para SendGrid (Campanha ${campaignId}, Chunk ${chunkIndex})...`)
+      console.log(`🚀 PROVIDER: Enviando para SendGrid (Campanha ${campaignId}, Chunk ${chunkIndex})...`);
 
       // Log detalhado antes do envio
       console.log(`📊 PROVIDER: Dados do envio:`, {
@@ -50,22 +43,23 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
         campaignId,
         chunkIndex,
         timestamp: new Date().toISOString(),
-      })
+      });
 
-      const [response] = await sgMail.send(emailData)
+      const [response] = await sgMail.send(emailData);
 
-      console.log(`✅ PROVIDER: Envio concluído para campanha ${campaignId}, chunk ${chunkIndex}`)
-      console.log(`📊 PROVIDER: Status SendGrid: ${response?.statusCode}`)
+      console.log(`✅ PROVIDER: Envio concluído para campanha ${campaignId}, chunk ${chunkIndex}`);
+      console.log(`📊 PROVIDER: Status SendGrid: ${response?.statusCode}`);
       console.log(`📈 PROVIDER: Headers relevantes:`, {
         "x-message-id": response?.headers["x-message-id"],
         "x-ratelimit-remaining": response?.headers["x-ratelimit-remaining"],
-      })
+      });
 
       return {
         success: true,
+        typeCampaign: 'email',
         messageId: response?.headers["x-message-id"],
         statusCode: response?.statusCode,
-        emailsSent: data.recipientGroup.length,
+        campaignSents: data.recipientGroup.length,
       }
     } catch (error: any) {
       console.error(`❌ PROVIDER: Erro ao enviar campanha ${campaignId}, chunk ${chunkIndex}:`)
@@ -82,7 +76,10 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
     }
   }
 
-  private buildEmailWithPersonalizations(data: SendEmailDTO): MailDataRequired {
+  private buildEmailWithPersonalizations(data: SendEmailCampaignDTO): MailDataRequired {
+    if(!data.baseData.subject) throw new Error('Campanha de Email sem Subject!');
+    if (Array.isArray(data.recipientGroup) && data.recipientGroup.some(item => typeof item !== 'string')) throw new Error('❌ recipientGroup não pode ser um array de números!');
+
     const dataEnvio = new Date().toISOString()
 
     console.log(`🔨 PROVIDER: Construindo email com personalizations para ${data.recipientGroup.length} destinatários`)
@@ -97,7 +94,7 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
         dataEnvio,
         chunkIndex: data.chunkIndex.toString(),
       },
-    }))
+    }));
 
     const emailData: MailDataRequired = {
       personalizations,
@@ -129,13 +126,13 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
 
     console.log(`✅ PROVIDER: Email construído com ${personalizations.length} personalizations`)
 
-    return emailData
+    return emailData;
   }
 
   private setApiKey() {
     if (!this.apiKey) {
-      console.error("❌ SENDGRID_API_KEY não configurada.")
-      throw new Error("API Key do SendGrid não configurada.")
+      console.error("❌ CAMPAIGN_SENDGRID_API_KEY não configurada.");
+      throw new Error("API Key do SendGrid não configurada.");
     }
     sgMail.setApiKey(this.apiKey)
   }
