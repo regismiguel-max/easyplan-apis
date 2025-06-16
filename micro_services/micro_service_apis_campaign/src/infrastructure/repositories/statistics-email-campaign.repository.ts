@@ -1,7 +1,3 @@
-// import EmailCampaignModel, { EmailCampaignAttributes } from "./models/email-campaign.model";
-// import IEmailCampaignRepository from "../../domain/contracts/repositories/IEmailCampaignRepository";
-// import EmailCampaignEntity from "../../domain/entities/EmailCampaign";
-// import EmailTemplateModel from "../database/models/email-template.model";
 import StatisticsEmailCampaignModel from "../database/models/statistics-email-campaign.model";
 
 class StatisticsEmailCampaignRepository {
@@ -13,6 +9,18 @@ class StatisticsEmailCampaignRepository {
         console.log(statistics);
 
         return;
+    }
+
+    async delete(id: number): Promise<string> {
+        console.log('Entramos no repository: ', id);
+        
+        const result = await StatisticsEmailCampaignModel.destroy({
+            where: { emailCampaignId: id },
+        });
+
+        if (result === 0)  'Não foi encontrado nenhum registro com o id passado - Falha';
+
+        return 'Deletado com sucesso';
     }
 
     // async updateProcessed(eventType: string): Promise<string> {
@@ -80,21 +88,11 @@ class StatisticsEmailCampaignRepository {
     //         : 'Falhou. Nenhuma campanha de email atualizada.'
     // }
     
-    // async updateStatus(id: string, status: EmailCampaignStatus): Promise<[number]> {
+    // async updateStatus(id: string, status: CampaignStatus): Promise<[number]> {
     //     return EmailCampaignModel.update(
     //         { status: status }, 
     //         { where: { id: id } }
     //     );
-    // }
-
-    // async delete(id: number): Promise<string> {
-    //     console.log('Entramos no repository: ', id);
-        
-    //     const result = await EmailCampaignModel.destroy({
-    //         where: { id: id },
-    //     });
-
-    //     return result > 0 ? 'Deletado com sucesso' : 'Falha na deleção';
     // }
 
     // async findByStatus(status: string): Promise<EmailCampaign[]> {

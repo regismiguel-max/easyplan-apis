@@ -1,7 +1,7 @@
 import { createClient } from 'redis';
 
-const redisHost = process.env.REDIS_HOST || '127.0.0.1';
-const redisPort = process.env.REDIS_PORT || '6379';
+const redisHost = process.env.CAMPAIGN_REDIS_HOST || '127.0.0.1';
+const redisPort = process.env.CAMPAIGN_REDIS_PORT || '6379';
 
 const redisUrl = `redis://${redisHost}:${redisPort}`;
 

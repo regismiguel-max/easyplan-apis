@@ -36,9 +36,12 @@ export class RedisHelper {
 
   // Método para verificar e definir lock atomicamente
   async acquireLock(lockKey: string, value: string, ttlSeconds: number): Promise<boolean> {
-    const result = await this.client.setNX(lockKey, value)
+    console.log('Entrou para criar o lock');
+    const result = await this.client.setNX(lockKey, value);
+    console.log('Resultado da criação do lock', result);
     if (result) {
-      await this.client.expire(lockKey, ttlSeconds)
+      console.log('Vamos criar o tempo de expiração');
+      await this.client.expire(lockKey, ttlSeconds);
     }
     return result
   }

@@ -1,12 +1,15 @@
 import { Worker } from "bullmq"
 import { createClient } from "redis"
-// import { ImprovedEmailCampaignSender } from "./sender"
-
-// import { redisConfig } from "./config/redis"
-import { RedisHelper } from "./redis-helper"
-import { redisConfig } from "../../config/redis-config"
-import { redisClient } from "../../database/config/redis.config"
-import CampaignSenderFactory from "../../../domain/factories/campaign-sender-factory"
+import { RedisHelper } from "./redis-helper";
+import { redisConfig } from "../../config/redis-config";
+import { redisClient } from "../../database/config/redis.config";
+import CampaignSenderFactory from "../../../domain/factories/campaign-sender-factory";
+import CampaignRepository from "../../repositories/campaign.repository";
+import { CampaignStatus } from "../../../domain/enums/campaign-status.enum";
+import { SendCampaignDTO } from "../../../domain/entities/interfaces/send-data.interface";
+import KaulizHelper from "./kauliz-status.helper";
+import StatisticsWhatsCampaignRepository from "../../repositories/statistics-whats-campaign.repository";
+import { Payload } from "../../providers/whatsapp-campaign-sender.provider";
 
 // const redisClient = createClient(redisConfig)
 const redisHelper = new RedisHelper(redisClient)
@@ -23,81 +26,122 @@ const redisHelper = new RedisHelper(redisClient)
 const campaignWorker = new Worker(
   "campaignQueue",
   async (job) => {
-    const { baseData, chunkIndex, recipientGroup } = job.data
-    const campaignId = baseData.id
-    const jobId = job.id?.toString() || `job_${Date.now()}`
-    const recipientCount = recipientGroup.length
+    const { baseData, chunkIndex, recipientGroup } = job.data as SendCampaignDTO;
+    const campaignId = baseData.id;
+    const lockJobId = job.id?.toString() || `job_${Date.now()}`;
+    const recipientCount = recipientGroup.length;
+    let isFailedAfterSentCampaign: boolean = false;
 
-    console.log(
-      `🚀 WORKER: Iniciando job ${jobId} - Campanha ${campaignId} - Chunk ${chunkIndex} - ${recipientCount} emails`,
-    )
-    console.log(`📊 WORKER: Timestamp: ${new Date().toISOString()}`)
+    console.log(`🚀 WORKER: Iniciando job ${lockJobId} - Campanha ${campaignId} - Chunk ${chunkIndex} - ${recipientCount} emails`);
+    console.log(`📊 WORKER: Timestamp: ${new Date().toISOString()}`);
 
     // Chave única para este chunk específico
-    const redisKey = `campaign:${campaignId}:chunk:${chunkIndex}:status`
-    const processKey = `campaign:${campaignId}:chunk:${chunkIndex}:processing`
-
+    const statusChunkKey = `campaign:${campaignId}:chunk:${chunkIndex}:status`;
+    const processChunkLockKey = `campaign:${campaignId}:chunk:${chunkIndex}:processinglock`;
+    console.log('Vamos vê o resultado da criação das chaves lock e status', processChunkLockKey, statusChunkKey);
+    
     try {
       // Verificação atômica se já está sendo processado usando helper
-      const isProcessing = await redisHelper.acquireLock(processKey, jobId, 300)
+      console.log('Enviar a chave, valor e tempo para criação da chave');
+      const isProcessingLock = await redisHelper.acquireLock(processChunkLockKey, lockJobId, 300);
+      console.log('Recebido do redisHelp de lock: ', isProcessingLock);
 
-      if (!isProcessing) {
-        const currentProcessor = await redisClient.get(processKey)
-        console.log(`⚠️ WORKER: Chunk ${chunkIndex} já está sendo processado pelo job ${currentProcessor}`)
+      if (isProcessingLock === undefined || isProcessingLock === null) throw new Error("Falha ao tentar adquirir o lock no Redis");
+      
+      // Se for true é por que não existia e foi criado. Se for false é porque já existia e não foi criado
+      if (!isProcessingLock) {
+        const currentProcessor = await redisClient.get(processChunkLockKey);
+
+        console.log(`⚠️ WORKER: Chunk ${chunkIndex} já está sendo processado pelo job ${currentProcessor}`);
+
         return { skipped: true, reason: "Already processing" }
       }
 
+
       // Verificar status atual
-      const currentStatus = await redisClient.get(redisKey)
+      const currentStatus = await redisClient.get(statusChunkKey);
+
       if (currentStatus === "SENT") {
-        console.log(`✅ WORKER: Chunk ${chunkIndex} já foi enviado anteriormente`)
-        await redisHelper.releaseLock(processKey)
+        console.log(`✅ WORKER: Chunk ${chunkIndex} já foi enviado anteriormente`);
+
+        await redisHelper.releaseLock(processChunkLockKey);
+
         return { skipped: true, reason: "Already sent" }
       }
 
-      // Marcar como processando
-      await redisClient.set(redisKey, "PROCESSING")
+      // Marcar status do chunk como processando
+      await redisClient.set(statusChunkKey, "PROCESSING");
 
       const sender =  CampaignSenderFactory.getSender(job.data.channel);
 
-      console.log(`📧 WORKER: Enviando ${recipientCount} emails para campanha ${campaignId}, chunk ${chunkIndex}...`)
+      console.log(`📧 WORKER: Enviando ${recipientCount} emails para campanha ${campaignId}, chunk ${chunkIndex}...`);
+      type senderResult = {
+        success: boolean,
+        typeCampaign: string,
+        idsStatus?: Payload[],
+        messageId?: string,
+        statusCode: number,
+        campaignSents: number,
+      }
 
-      const result = await sender.senderCampaing(job.data)
+      const result: senderResult = await sender.senderCampaing(job.data);
 
       // Marcar como enviado
-      await redisClient.set(redisKey, "SENT")
-
+      await redisClient.set(statusChunkKey, "SENT");
+      console.log('A', result);
+      
       // Salvar detalhes do envio usando helper
-      const detailsKey = `campaign:${campaignId}:chunk:${chunkIndex}:details`
+      const detailsKey = `campaign:${campaignId}:chunk:${chunkIndex}:details`;
       await redisHelper.hSetObject(detailsKey, {
         status: "SENT",
-        emailsSent: result.emailsSent.toString(),
+        typeCampaign: result.typeCampaign,
+        campaignSents: result.campaignSents.toString(),
         messageId: result.messageId || "",
         timestamp: new Date().toISOString(),
-        jobId: jobId,
-      })
-
-      // Limpar chave de processamento
-      await redisHelper.releaseLock(processKey)
-
+        jobId: lockJobId,
+      });
+      
+      console.log('B');
+      
+      // if(baseData.typeCampaign === 'whatsapp' && result.idsStatus){
+      //   console.log('C');
+      //   const statusRetorno = await KaulizHelper.getStatus(result.idsStatus);
+        
+      //   const swcr = new StatisticsWhatsCampaignRepository();
+      //   console.log('status retorno: ', statusRetorno);
+        
+      //   const updateResponse = await swcr.update(statusRetorno, campaignId);
+        
+      //   const repository = new CampaignRepository();
+        
+      //   updateResponse.includes('sucesso') ? await repository.updateStatus(campaignId, CampaignStatus.SENT) : '';
+      // }
+      
       // Verificar se todos os chunks foram processados
-      await checkCampaignStatus(campaignId)
-
-      console.log(`✅ WORKER: Chunk ${chunkIndex} da campanha ${campaignId} enviado com sucesso`)
-      console.log(`📊 WORKER: Emails enviados: ${result.emailsSent}, Message ID: ${result.messageId}`)
+      if(result.idsStatus){
+        console.log('Tem id de mensagem para ser persistido');
+        await checkCampaignStatus(campaignId, result.idsStatus, true, chunkIndex);
+      } else {
+        await checkCampaignStatus(campaignId);
+      }
+      
+      console.log(`✅ WORKER: Chunk ${chunkIndex} da campanha ${campaignId} enviado com sucesso`);
+      console.log(`📊 WORKER: Emails enviados: ${result.campaignSents}, Message ID: ${result.messageId}`);
+      // Limpar chave de processamento
+      await redisHelper.releaseLock(processChunkLockKey);
 
       return {
-        success: true,
-        emailsSent: result.emailsSent,
+        success: false,
+        campaignSent: result.campaignSents,
         messageId: result.messageId,
         chunkIndex,
       }
     } catch (error: any) {
       // Limpar chave de processamento em caso de erro
-      await redisHelper.releaseLock(processKey)
-      await redisClient.set(redisKey, "FAILED")
+      await redisHelper.releaseLock(processChunkLockKey)
+      await redisClient.set(statusChunkKey, "FAILED")
 
-      console.error(`❌ WORKER: Erro no job ${jobId}:`, error.message)
+      console.error(`❌ WORKER: Erro no job ${lockJobId}:`, error.message)
 
       // Log detalhado do erro
       console.error(`📋 WORKER: Detalhes do erro:`, {
@@ -119,15 +163,16 @@ const campaignWorker = new Worker(
 )
 
 // Função para verificar status da campanha
-async function checkCampaignStatus(campaignId: string) {
+async function checkCampaignStatus(campaignId: string | number, whatsPayloads?: Payload[], whatsappCampaign?: boolean, chunkIndex?: number) {
   try {
-    const campaignInfo = await redisClient.hGetAll(`campaign:${campaignId}:info`)
-    const totalChunks = Number.parseInt(campaignInfo.totalChunks || "0")
+    const campaignInfo = await redisClient.hGetAll(`campaign:${campaignId}:info`);
 
-    if (totalChunks === 0) return
+    const totalChunks = Number.parseInt(campaignInfo.totalChunks || "0");
 
-    let sentChunks = 0
-    let failedChunks = 0
+    if (totalChunks === 0) return;
+
+    let sentChunks = 0;
+    let failedChunks = 0;
 
     for (let i = 1; i <= totalChunks; i++) {
       const status = await redisClient.get(`campaign:${campaignId}:chunk:${i}:status`)
@@ -135,17 +180,49 @@ async function checkCampaignStatus(campaignId: string) {
       else if (status === "FAILED") failedChunks++
     }
 
-    console.log(
-      `📊 STATUS: Campanha ${campaignId} - ${sentChunks}/${totalChunks} chunks enviados, ${failedChunks} falharam`,
-    )
+    console.log( `📊 STATUS: Campanha ${campaignId} - ${sentChunks}/${totalChunks} chunks enviados, ${failedChunks} falharam` );
+
+    const repository = new CampaignRepository();
+
+    campaignId = Number(campaignId);
+
+    let campaignSent: boolean = false;
 
     if (sentChunks === totalChunks) {
-      console.log(`🎉 Campanha ${campaignId} concluída com sucesso!`)
+      await repository.updateStatus(campaignId, CampaignStatus.SENT);
+      console.log(`✅ Campanha ${campaignId} marcada como SENT.`);
+      campaignSent = true;
     } else if (sentChunks + failedChunks === totalChunks) {
-      console.log(`⚠️ Campanha ${campaignId} concluída com falhas`)
+      if(failedChunks === totalChunks) {
+        await repository.updateStatus(campaignId, CampaignStatus.FAILED);
+        throw new Error('Falha total no disparo da campanha');
+      }
+
+      console.log(`⚠️ Campanha ${campaignId} concluída com falhas, verificar logs`);
+    } else {
+        console.log(`🕒 Campanha ${campaignId} ainda em processamento.`);
+    }
+
+    if(whatsappCampaign && whatsPayloads && campaignSent && chunkIndex) {
+      console.log('Campanha disparada com sucesso, vamos criar a tabela para os status das mensagens');
+      
+      const repository = new StatisticsWhatsCampaignRepository();
+
+      for(const payload of whatsPayloads) {
+        console.log('payload para criar status da mensagem: ', payload);
+        
+        payload.chunkIndex = chunkIndex;
+        payload.campaignId = campaignId;
+        
+        await repository.createMessageStatus(payload);
+
+        console.log('Status da mensagem criado com sucesso');
+        
+      }
     }
   } catch (error) {
     console.error("Erro ao verificar status da campanha:", error)
+    throw new Error('Error após campanha enviada')
   }
 }
 

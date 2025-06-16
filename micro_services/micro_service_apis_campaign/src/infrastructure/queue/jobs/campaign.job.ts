@@ -1,8 +1,9 @@
-import SendEmailDTO from "../../../domain/entities/interfaces/email-campaign/send-data.interface";
+import {SendCampaignDTO} from "../../../domain/entities/interfaces/send-data.interface";
 import { redisClient } from "../../database/config/redis.config";
 import { campaignQueue } from "../queue";
 
-export const addCampaignToQueue = async (data: SendEmailDTO) => {
+//--------------------------------------------------- ESTÁ INUTILIZADO POIS O CASO DE USO ENVIA O JOB DIRETAMENTE ---------------------------------------------------------------------/
+export const addCampaignToQueue = async (data: SendCampaignDTO) => {
   // Criar um hash do conteúdo para evitar jobs duplicados
   const recipientsHash = Buffer.from(data.recipientGroup.sort().join(",")).toString("base64").substring(0, 10);
 
@@ -21,13 +22,9 @@ export const addCampaignToQueue = async (data: SendEmailDTO) => {
   if (!alreadyExists) {
     await redisClient.set(redisKey, "QUEUED");
 
-    console.log(
-      `✅ JOB: Job ${resultJob.id} criado para campanha ${data.baseData.id} com ${data.recipientGroup.length} destinatários`
-    );
+    console.log( `✅ JOB: Job ${resultJob.id} criado para campanha ${data.baseData.id} com ${data.recipientGroup.length} destinatários` );
   } else {
-    console.log(
-      `⚠️ JOB: Job ${resultJob.id} já existia no Redis para campanha ${data.baseData.id}`
-    );
+    console.log( `⚠️ JOB: Job ${resultJob.id} já existia no Redis para campanha ${data.baseData.id}` );
   }
 
   return resultJob;

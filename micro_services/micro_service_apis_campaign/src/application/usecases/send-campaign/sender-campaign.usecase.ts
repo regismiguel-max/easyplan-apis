@@ -1,142 +1,211 @@
-import { EmailCampaignFactory } from "../../../domain/factories/entity-email-campaign-factory";
+import CampaignFactory from "../../../domain/factories/campaign-entity-factory";
 // import SenderCampaignDTO from "../../../presentation/dtos/sender-campaign.dto";
 import ISendCampaignUseCase from "../../../domain/contracts/usecase/ISendCampaignUseCase";
-import EmailCampaignEntity from "../../../domain/entities/EmailCampaign";
-import { addCampaignToQueue } from "../../../infrastructure/queue/jobs/campaign.job";
-import EmailCampaignRepository from "../../../infrastructure/repositories/email-campaign.repository";
-import EmailTemplateRepository from "../../../infrastructure/repositories/email-template.repository";
-import path from 'path';
+import CampaignRepository from "../../../infrastructure/repositories/campaign.repository";
+import TemplateRepository from "../../../infrastructure/repositories/template.repository";
 import * as fs from 'fs';
-import CRUDEmailCampaignDTO from "../../../presentation/dtos/email-campaign/input/crud-email-campaign.dto";
-import EmailTemplate from "../../../domain/entities/interfaces/email-campaign/email-template.interface";
-import FullEmailCampaign, { ShortFullEmailCampaign } from "../../../domain/entities/interfaces/email-campaign/full-email-campaign.interface";
-import SendEmailDTO, { BaseDataToSend } from "../../../domain/entities/interfaces/email-campaign/send-data.interface";
-import RecipientGroup from "../../../domain/entities/interfaces/email-campaign/recipient-group.interface";
-import { EmailCampaignStatus } from "../../../domain/types/email-status.types";
+import  ShortFullEmailCampaign  from "../../../domain/entities/interfaces/email-campaign/full-email-campaign.interface";
+import { SendCampaignDTO, BaseDataToSend, SendEmailCampaignDTO, SendWhatsappCampaignDTO } from "../../../domain/entities/interfaces/send-data.interface";
+import { CampaignStatus } from "../../../domain/enums/campaign-status.enum";
 import StatisticsEmailCampaignRepository from "../../../infrastructure/repositories/statistics-email-campaign.repository";
 import { campaignQueue } from "../../../infrastructure/queue/queue";
 import { redisClient } from "../../../infrastructure/database/config/redis.config";
 import { createHash } from "crypto";
+import RecipientGroupRepository from "../../../infrastructure/repositories/recipient-group.repository";
+import { htmlToText } from 'html-to-text';
+import StatisticsWhatsCampaignRepository from "../../../infrastructure/repositories/statistics-whats-campaign.repository";
 
 export default class SendCampaignUseCase implements ISendCampaignUseCase {
     constructor(
-        private emailTemplateRepository: EmailTemplateRepository,
-        private emailCampaignRepository: EmailCampaignRepository,
-        private statisticsRepository: StatisticsEmailCampaignRepository
+        private templateRepository: TemplateRepository,
+        private campaignRepository: CampaignRepository,
+        private statisticsRepository: StatisticsEmailCampaignRepository,
+        private whatsStatisticsRepository: StatisticsWhatsCampaignRepository,
+        private recipientGroupRepository: RecipientGroupRepository
     ) {}
 
     async execute(dto: any): Promise<void | string> {
-    const emailCampaignEntity = await EmailCampaignFactory.createNew(dto)
+      //------------------------------------------------------------ 1° Passo instancia classe de dominio e aplicar safeguards --------------------------------------------------------------
+      const campaignEntity = await CampaignFactory.createNew(dto);
 
-    if (!emailCampaignEntity) throw new Error("Erro ao instanciar a entidade EmailCampaign")
-    if (await !emailCampaignEntity.canBeDispatched()) throw new Error("Campanha não atende aos requisitos de disparo")
+      if (!campaignEntity) throw new Error("Erro ao instanciar a entidade campaign")
+      if (await !campaignEntity.canBeDispatched()) throw new Error("Campanha não atende aos requisitos de disparo")
 
-    const campaignId = emailCampaignEntity.emailCampaignBaseInformations.id
-    const templateId = emailCampaignEntity.emailCampaignBaseInformations.emailTemplateId
+      const campaignId = campaignEntity.baseInformations.id
+      const templateId = campaignEntity.baseInformations.templateId
 
-    if (!templateId) throw new Error("Campanha sem id do template")
-    if (!campaignId) throw new Error("Nenhum ID de campanha passado")
+      if (!templateId) throw new Error("Campanha sem id do template")
+      if (!campaignId) throw new Error("Nenhum ID de campanha passado")
 
-    // Verificar se a campanha já está sendo processada
-    const campaignLockKey = `campaign:${campaignId}:lock`
-    const isLocked = await redisClient.get(campaignLockKey)
+      //-------------------------------------------------------------- 2° Passo criar chave Lock para os processos internos dessa campanha ---------------------------------------------------
+      // Verificar se a campanha já está sendo processada
+      const campaignLockKey = `campaign:${campaignId}:lock`
+      const isLocked = await redisClient.get(campaignLockKey)
 
-    if (isLocked) {
-      throw new Error(`Campanha ${campaignId} já está sendo processada`)
-    }
-
-    // Criar lock para a campanha
-    await redisClient.setEx(campaignLockKey, 3600, "PROCESSING") // Lock por 1 hora
-
-    try {
-      const emailCampaign = await this.emailCampaignRepository.findById(campaignId)
-      const baseData = {
-        id: campaignId,
-        campaignName: emailCampaign.emailCampaign.campaignName,
-        subject: emailCampaign.emailCampaign.subject,
-        status: emailCampaign.emailCampaign.status,
+      if (isLocked) {
+        throw new Error(`Campanha ${campaignId} já está sendo processada`)
       }
 
-      const templateDB = await this.emailTemplateRepository.findById(templateId)
-      const templateHTML = fs.readFileSync(templateDB.absolutePath, "utf-8")
+      // Criar lock para a campanha
+      await redisClient.setEx(campaignLockKey, 3600, "PROCESSING") // Lock por 1 hora
 
-      const { recipientsGroup, count } = await this.emailCampaignRepository.getRecipientGroupById(campaignId)
+      try {
+        //------------------------------------------------------------ 3° Passo buscar a campanha em questão no banco de dados -----------------------------------------------------------------
+        const campaign: ShortFullEmailCampaign = await this.campaignRepository.findById(campaignId);
+        
+        //------------------------------------------------------------ 4° Passo buscar template da campanha a ser disparada ---------------------------------------------------------------------
+        console.log('Antes de buscar o template');
+        const templateDB = await this.templateRepository.findById(templateId);
+        console.log('Depois: ', templateDB);
+        const templateHTML = fs.readFileSync(templateDB.templateContent, "utf-8");
+        // Caso seja campanha de whatsapp transformamos o templateHTML em texto puro
+        let plainText: string | undefined;
+        if(campaign.campaign.typeCampaign === 'whatsapp') {
+          plainText = htmlToText(templateHTML, {
+            wordwrap: false,
+            selectors: [
+              {selector: 'a', options:{ hideLinkHrefIfSameAsText: true }}
+            ]
+          });
+          
+          console.log('Veja o html traduzido em Texto: ', plainText);
+        }
+        
+        
+        //------------------------------------------------------------ 5° Passo buscar grupo destinatário da campanha ----------------------------------------------------------------------------
+        console.log('Antes de buscar o grupo destinatário');
+        const { recipientsGroup, count } = await this.recipientGroupRepository.getRecipientGroupById(campaignId);
+        
+        // Remover duplicatas logo no início
+        const recipientsGroupEmails: string[] = [...new Set(recipientsGroup.map((rg: any) => rg.email_principal))];
+        
+        console.log(`📊 Total de destinatários únicos: ${recipientsGroupEmails.length}`);
+        let clientNumbers: number[] = [];
+        //------------------------------------------------------------ 6° Passo Criar lotes do grupo destinatário para facilitar o processamento -------------------------------------------------
+        const chunkSize = 500;
+        let chunks: (string | number)[][] = [];
+        if(campaign.campaign.typeCampaign === 'whatsapp'){
+          // clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
+          //   const ddd = rg.ddd_celular;
+          //   const celular = rg.celular;
 
-      // Remover duplicatas logo no início
-      const recipientsGroupEmails: string[] = [...new Set(recipientsGroup.map((rg: any) => rg.email_principal))]
+          //   const number = ddd + celular;
+          //   return number;
+          // }))];
 
-      console.log(`📊 Total de destinatários únicos: ${recipientsGroupEmails.length}`)
+          clientNumbers = [
+            84994969191,
+            54992389702,
+            61993598991,
+            899929220040
+          ]
+          chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
 
-      const chunkSize = 500
-      const chunks = await this.splitIntoChunks(recipientsGroupEmails, chunkSize)
-      const totalChunks = chunks.length
-
-      // Salvar informações da campanha no Redis
-      const campaignKey = `campaign:${campaignId}:info`
-      await redisClient.hSet(campaignKey, {
-        totalChunks: totalChunks.toString(),
-        totalRecipients: recipientsGroupEmails.length.toString(),
-        status: "QUEUING",
-        startTime: new Date().toISOString(),
-      })
-
-      console.log(
-        `📦 Dividindo ${recipientsGroupEmails.length} emails em ${totalChunks} chunks de até ${chunkSize} emails`,
-      )
-
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkEmails = chunks[i]
-
-        // Criar hash único para este chunk específico
-        const chunkHash = this.createChunkHash(campaignId.toString(), chunkEmails, i)
-        const jobId = `${campaignId}:${chunkHash}:${chunkEmails.length}`
-
-        console.log(`📧 Processando chunk ${i + 1}/${totalChunks} com ${chunkEmails.length} emails`)
-        console.log(`🔑 Job ID: ${jobId}`)
-
-        const sendData = {
-          baseData,
-          template: templateHTML,
-          recipientGroup: chunkEmails,
-          channel: dto.channel ?? null,
-          recipientsGroupCount: chunkEmails.length,
-          chunkIndex: i + 1,
-          totalChunks,
+        } else if(campaign.campaign.typeCampaign === 'email') {
+          chunks = await this.splitIntoChunks(recipientsGroupEmails, chunkSize);
         }
 
-        // Verificação mais robusta de duplicatas
-        const jobExists = await this.checkJobExists(jobId)
-        if (jobExists) {
-          console.log(`⚠️ Job ${jobId} já existe. Pulando...`)
-          continue
+        const totalChunks = chunks.length;
+        
+        //------------------------------------------------------------ 7° Passo criar chave Informações de disparo da campanha --------------------------------------------------------------------
+        // Salvar informações da campanha no Redis
+        const campaignKey = `campaign:${campaignId}:info`
+        await redisClient.hSet(campaignKey, {
+          totalChunks: totalChunks.toString(),
+          totalRecipients: recipientsGroupEmails.length.toString(),
+          status: "QUEUING",
+          startTime: new Date().toISOString(),
+        })
+        
+        console.log(`📦 Dividindo ${recipientsGroupEmails.length} emails em ${totalChunks} chunks de até ${chunkSize} emails`,);
+        
+        //------------------------------------------------------------ 8° Passo Começar a montar o DTO de disparo - Informações Base ---------------------------------------------------------------------
+        const baseData: BaseDataToSend = {
+          id: campaignId,
+          campaignName: campaign.campaign.campaignName,
+          subject: campaign.campaign.subject,
+          status: campaign.campaign.status,
+          typeCampaign: campaign.campaign.typeCampaign
+        }
+        
+        
+        
+        //------------------------------------------------------------ 9° Passo Finalizar o DTO de disparo por lote de grupo destinatário ---------------------------------------------------------------------
+        for (let i = 0; i < chunks.length; i++) {
+          const chunkContacts = chunks[i];
+
+          // Criar hash único para este lote específico
+          const chunkHash = this.createChunkHash(campaignId.toString(), chunkContacts, i);
+          const jobId = `${campaignId}:${chunkHash}:${chunkContacts.length}`;
+
+          console.log(`📧 Processando chunk ${i + 1}/${totalChunks} com ${chunkContacts.length} contatos`);
+          console.log(`🔑 Job ID: ${jobId}`);
+
+          let sendData: SendCampaignDTO;
+
+          if (baseData.typeCampaign === 'email'){
+            sendData = {
+              baseData,
+              template: templateHTML,
+              recipientGroup: chunkContacts as string[],
+              channel: dto.channel ?? null,
+              recipientsGroupCount: chunkContacts.length,
+              chunkIndex: i + 1,
+              totalChunks,
+            } as SendEmailCampaignDTO;
+          } else if(baseData.typeCampaign === 'whatsapp' && plainText) {
+            sendData = {
+              baseData,
+              template: plainText,
+              recipientGroup: chunkContacts as number[],
+              channel: dto.channel ?? null,
+              recipientsGroupCount: chunkContacts.length,
+              chunkIndex: i + 1,
+              totalChunks,
+            } as SendWhatsappCampaignDTO;
+          }  else {
+            throw new Error('❌ Tipo de campanha inválido ou template WhatsApp ausente!');
+          }
+
+          // Verificação mais robusta de duplicatas
+          const jobExists = await this.checkJobExists(jobId)
+          if (jobExists) {
+            console.log(`⚠️ Job ${jobId} já existe. Pulando...`)
+            continue
+          }
+
+          //------------------------------------------------------------ 10° Passo DTO de disparo finalizado - ADICIONAR NA FILA PARA DISPARO---------------------------------------------------------------------
+          // Adicionar à fila com ID único
+          await this.addCampaignToQueueSafe(sendData, jobId)
+
+          console.log(`✅ Chunk ${i + 1}/${totalChunks} adicionado à fila com sucesso`)
+
+          // Delay entre chunks para evitar sobrecarga
+          if (i < chunks.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
         }
 
-        // Adicionar à fila com ID único
-        await this.addCampaignToQueueSafe(sendData, jobId)
-
-        console.log(`✅ Chunk ${i + 1}/${totalChunks} adicionado à fila com sucesso`)
-
-        // Delay entre chunks para evitar sobrecarga
-        if (i < chunks.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 500))
+        //--------------------------------------------------------------- 11° Passo criar estatísticas da Campanha e atualizar o status da campanha em questão ------------------------------------------------------
+        if(baseData.typeCampaign === 'email') {
+          await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId)
+        } else if(baseData.typeCampaign === 'whatsapp') {
+          await this.whatsStatisticsRepository.create(clientNumbers.length, campaignId)
         }
+        await this.campaignRepository.updateStatus(campaignId, CampaignStatus.QUEUED);
+
+        // Remover lock
+        await redisClient.del(campaignLockKey)
+
+        return "A campanha foi colocada na fila com sucesso"
+      } catch (error) {
+        // Remover lock em caso de erro
+        await redisClient.del(campaignLockKey)
+        throw error
       }
-
-      await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId)
-      await this.emailCampaignRepository.updateStatus(campaignId, EmailCampaignStatus.QUEUED);
-
-      // Remover lock
-      await redisClient.del(campaignLockKey)
-
-      return "A campanha foi colocada na fila com sucesso"
-    } catch (error) {
-      // Remover lock em caso de erro
-      await redisClient.del(campaignLockKey)
-      throw error
-    }
   }
 
-  private createChunkHash(campaignId: string, emails: string[], chunkIndex: number): string {
+  private createChunkHash(campaignId: string, emails: (string | number)[], chunkIndex: number): string {
     const content = `${campaignId}:${chunkIndex}:${emails.sort().join(",")}`
     return createHash("md5").update(content).digest("hex").substring(0, 10)
   }
@@ -155,7 +224,7 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
     }
   }
 
-  private async addCampaignToQueueSafe(data: any, jobId: string) {
+  private async addCampaignToQueueSafe(data: SendCampaignDTO, jobId: string) {
     const job = await campaignQueue.add("sendCampaign", data, {
       priority: 1,
       jobId: jobId,
@@ -172,8 +241,8 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
     return job
   }
 
-  private async splitIntoChunks(recipientsEmails: string[], chunkSize: number): Promise<string[][]> {
-    const results: string[][] = []
+  private async splitIntoChunks(recipientsEmails: (string | number)[], chunkSize: number): Promise<(string | number)[][]> {
+    const results: (string | number)[][] = []
     const emailsCopy = [...recipientsEmails]
 
     for (let i = 0; i < emailsCopy.length; i += chunkSize) {
@@ -184,48 +253,3 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
     return results
   }
 }
-
-
-// const sendEmailData: SendEmailDTO = {
-//     baseData,
-//     template: templateHTML,
-//     recipientGroup: recipientsGroupEmails,
-//     channel: dto.channel ?? null,
-//     recipientsGroupCount
-// }
-
-// console.log('Dados finais para disparo: ', sendEmailData);
-
-// // Enviar para fila
-// const resultQueue = await addCampaignToQueue(sendEmailData); // apenas adiciona na fila e delega o processamento para o worker
-
-// // Valida o retorno
-// if (!resultQueue.id) {
-//     console.log('Acho que deu erro');
-//     return
-// }
-// Retorna
-// private async splitIntoChunks(recipientsEmails: string[], chunkSize: number) {
-//     const results = [];
-//     while (recipientsEmails.length) {
-//         results.push(recipientsEmails.splice(0, chunkSize));
-//     }
-//     return results;
-// }
-
-// console.log(`📊 Total de destinatários: ${recipientsGroupCount}`);
-//         console.log(`📦 Dividindo em ${chunks.length} lotes de até ${chunkSize} emails cada`);
-    
-//         // Verificar se a soma dos chunks é igual ao total
-//         const totalInChunks = chunks.reduce( (total, chunk) => total + chunk.length, 0);
-//         console.log(`🔍 Verificação: ${totalInChunks} emails nos chunks (deve ser igual a ${recipientsGroupCount})`);
-    
-//         if (totalInChunks !== recipientsGroupCount) throw new Error( `Erro na divisão dos emails: ${totalInChunks} nos chunks != ${recipientsGroupCount} total` );
-
-
-//         console.log(`🚀 Iniciando processamento de ${chunks.length} lotes para campanha ${campaignId}`);
-    
-//         // Verificar jobs já na fila antes de adicionar novos
-//         const waitingJobs = await campaignQueue.getWaiting();
-//         const processingJobs = await campaignQueue.getActive();
-//         console.log(`📊 FILA: ${waitingJobs.length} jobs aguardando, ${processingJobs.length} jobs em processamento`);

@@ -10,7 +10,8 @@ const connection_db = new Sequelize(
     {
         host: process.env.CAMPAIGN_MYSQL_HOST,
         port: Number(process.env.CAMPAIGN_MYSQL_PORT),
-        dialect: 'mysql'
+        dialect: 'mysql',
+        timezone: '-03:00'
     }
 );
 
