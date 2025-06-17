@@ -38,12 +38,12 @@ export default class SaveTemplateUseCase implements ISaveTemplateUseCase {
         }
 
         // Pegar o caminho absoluto
-        const absolutePath = path.resolve(filePath);
+        // const absolutePath = path.resolve(filePath);
         
         // Criar Instância de Email Template com o caminho do arquivo
         const emailTemplate = new TemplateEntity(
             dto.templateName,
-            absolutePath,
+            fileName,
             'email'
         );
 
