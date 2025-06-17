@@ -193,9 +193,11 @@ exports.orderSummary = async (request_ID, resend) => {
 
         bonusMap.forEach((bonus, cpf) => {
             const wallet = walletMap.get(cpf);
-            if (!wallet || Number(wallet.saldoDisponivel) <= 0) return;
+            const saldo = Number(String(wallet?.saldoDisponivel || '0').replace(',', '.'));
 
-            totalBonificacoes += wallet.saldoDisponivel;
+            if (!wallet || isNaN(saldo) || saldo <= 0) return;
+
+            totalBonificacoes += saldo;
 
             const formattedCPF = cpf.replace(/\D/g, '')
                 .replace(/(\d{3})(\d)/, '$1.$2')
@@ -205,13 +207,13 @@ exports.orderSummary = async (request_ID, resend) => {
 
             lotePay.push({
                 document: formattedCPF,
-                cardValues: [{ card: "v300", value: Number(wallet.saldoDisponivel) }],
+                cardValues: [{ card: "v300", value: saldo }],
             });
 
             lotePayment.push({
                 walletID: wallet.id,
                 document: formattedCPF,
-                value: Number(wallet.saldoDisponivel),
+                value: saldo,
                 saldoProvisionado: wallet.saldoProvisionado,
                 saldoDisponivel: wallet.saldoDisponivel,
             });
