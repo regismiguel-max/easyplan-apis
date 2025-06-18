@@ -20,10 +20,22 @@ export default class GetCampaignUseCase implements IGetCampaignUseCase {
         
         
         if(result.campaignTemplateModel) {
-            const absolutPath = path.join(absolutePathTemplateHTML, result.campaignTemplateModel.templateContent)
-            console.log('absolutePath local: ', absolutPath);
+            let baseName: string = '';
 
-            const htmlContent = fs.readFileSync(absolutPath, 'utf-8');
+            let absolutePath: string = '';
+
+            if(result.campaignTemplateModel.templateContent.includes('C:') || result.campaignTemplateModel.templateContent.includes('D:')){
+                baseName = path.basename(result.campaignTemplateModel.templateContent);
+                console.log(baseName);
+                
+                absolutePath = path.join(absolutePathTemplateHTML, baseName);
+            } else {
+                absolutePath = path.join(absolutePathTemplateHTML, result.campaignTemplateModel.templateContent);
+            }
+
+            console.log('absolutePath local: ', absolutePath);
+
+            const htmlContent = fs.readFileSync(absolutePath, 'utf-8');
             
             console.log('html lido: ', htmlContent);
             
