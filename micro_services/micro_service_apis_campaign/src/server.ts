@@ -33,6 +33,10 @@ app.use("/campaign/email", campaignRoutes);
 app.use("/campaign/email/filters", emailFiltersRoutes);
 app.use("/public", express.static('public'));
 
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to base EasyPlan application." });
+});
+
 //************** BANCO DE DADOS ************/
 // Inicializar associação das tabelas
 associateModels();
