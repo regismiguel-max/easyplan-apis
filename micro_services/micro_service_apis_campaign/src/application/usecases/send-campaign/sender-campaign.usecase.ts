@@ -14,6 +14,7 @@ import { createHash } from "crypto";
 import RecipientGroupRepository from "../../../infrastructure/repositories/recipient-group.repository";
 import { htmlToText } from 'html-to-text';
 import StatisticsWhatsCampaignRepository from "../../../infrastructure/repositories/statistics-whats-campaign.repository";
+import path from "path";
 
 export default class SendCampaignUseCase implements ISendCampaignUseCase {
     constructor(
@@ -57,7 +58,10 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
         console.log('Antes de buscar o template');
         const templateDB = await this.templateRepository.findById(templateId);
         console.log('Depois: ', templateDB);
-        const templateHTML = fs.readFileSync(templateDB.templateContent, "utf-8");
+        const absolutePathTemplateHTML = path.resolve(__dirname, '../../../../templateHTML');
+        const absolutePath = path.join(absolutePathTemplateHTML, templateDB.templateContent);
+
+        const templateHTML = fs.readFileSync(absolutePath, "utf-8");
         // Caso seja campanha de whatsapp transformamos o templateHTML em texto puro
         let plainText: string | undefined;
         if(campaign.campaign.typeCampaign === 'whatsapp') {

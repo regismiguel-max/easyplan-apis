@@ -13,6 +13,8 @@ import ValidityModel from "../database/models/filters/validity.model";
 import Campaign from "../../domain/entities/interfaces/campaign.interface";
 import ShortFullEmailCampaign from "../../domain/entities/interfaces/email-campaign/full-email-campaign.interface";
 import ICampaignRepository from "../../domain/contracts/repositories/ICampaignRepository";
+import StatisticsWhatsCampaignModel from "../database/models/statistics-whats-campaign.model";
+import CampaignMessageStatusesModel from "../database/models/campaign-message-statuses.model";
 
 class CampaignRepository implements ICampaignRepository {
     async save(campaign: Campaign): Promise<Campaign>{
@@ -72,7 +74,8 @@ class CampaignRepository implements ICampaignRepository {
                     {model: PlansModel},
                     {model: ContractStatusModel},
                     {model: ValidityModel},
-                    {model: UfModel}
+                    {model: UfModel},
+                    {model: StatisticsWhatsCampaignModel}
                 ]
             });
     
@@ -111,6 +114,7 @@ class CampaignRepository implements ICampaignRepository {
                 contractStatuses: pureObject.ContractStatusModels ?? null,
                 validity: pureObject.ValidityModel ?? null,
                 ufs: pureObject.UfModels ?? null,
+                whatsappStatisticsModel: pureObject.StatisticsWhatsCampaignModel ?? null,
             }
 
             console.log('Resultado final do objeto puro: ', pureObject);

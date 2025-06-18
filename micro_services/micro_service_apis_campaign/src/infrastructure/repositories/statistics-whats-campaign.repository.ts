@@ -14,16 +14,31 @@ export default class StatisticsWhatsCampaignRepository {
         return;
     }
 
-    async update(payload: any, campaignId: number) {
+    async get(campaignId: number) {
+        const statistic = await StatisticsWhatsCampaignModel.findOne(
+            {
+                where: {campaignId}
+            }
+        );
+
+        if(!statistic) throw new Error('Não existe estatística para o id de campanha passado');
+
+        const pureObject = statistic.get({plain: true});
+
+        return pureObject
+    }
+
+    async update(payload: any, id: number) {
         console.log('Iniciar atualização statistics: ', payload);
 
         const affectedRows = await StatisticsWhatsCampaignModel.update(
             {
                 sent: payload.sent,
-                failed: payload.failed
+                failed: payload.failed,
+                sentRate: payload.sentRate
             },
             {
-                where: {campaignId}
+                where: {id}
             }
         );
         console.log('Atualizar statistics não deu error');
@@ -73,6 +88,13 @@ export default class StatisticsWhatsCampaignRepository {
             },
             order: [['createdAt', 'ASC']],
         });
+    }
+    async getMessageStatusByCampaignId(campaignId: number) {
+        return CampaignMessageStatusesModel.findAll(
+            {
+                where: { campaignId },
+            }
+        );
     }
 
     async updateStatus(campaignId: number, status: string, idMessage: number) {
