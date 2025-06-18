@@ -1,3 +1,4 @@
+import path from "path";
 import IGetCampaignUseCase from "../../domain/contracts/usecase/IGetCampaigUseCase";
 import ShortFullEmailCampaign from "../../domain/entities/interfaces/email-campaign/full-email-campaign.interface";
 import CampaignRepository from "../../infrastructure/repositories/campaign.repository";
@@ -14,8 +15,29 @@ export default class GetCampaignUseCase implements IGetCampaignUseCase {
             throw new Error("error");
         }
 
+        const absolutePathTemplateHTML = path.resolve(__dirname, '../../../templateHTML');
+        console.log('absolutePathTemplateHTML local: ', absolutePathTemplateHTML);
+        
+        
         if(result.campaignTemplateModel) {
-            const htmlContent = fs.readFileSync(result.campaignTemplateModel.templateContent, 'utf-8');
+            let baseName: string = '';
+
+            let absolutePath: string = '';
+
+            if(result.campaignTemplateModel.templateContent.includes('C:') || result.campaignTemplateModel.templateContent.includes('D:')){
+                baseName = path.basename(result.campaignTemplateModel.templateContent);
+                console.log(baseName);
+                
+                absolutePath = path.join(absolutePathTemplateHTML, baseName);
+            } else {
+                absolutePath = path.join(absolutePathTemplateHTML, result.campaignTemplateModel.templateContent);
+            }
+
+            console.log('absolutePath local: ', absolutePath);
+
+            const htmlContent = fs.readFileSync(absolutePath, 'utf-8');
+            
+            console.log('html lido: ', htmlContent);
             
             result.campaignTemplateModel.templateContent = htmlContent;
         }
