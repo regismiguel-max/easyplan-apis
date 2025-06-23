@@ -153,7 +153,7 @@ exports.signin = (req, res) => {
                                                             });
                                                         }
                                                         else {
-                                                            if (co.termo_aditivo && co.termo_aditivo_ID && co.termo_aditivo_URL) {
+                                                            if (co.termo_aditivo && co.termo_aditivo_ID && co.termo_aditivo_URL && co.termo_aditivo_2 && co.termo_aditivo_ID_2 && co.termo_aditivo_URL_2) {
                                                                 res.status(200).send({
                                                                     corretora: {
                                                                         dados: co,

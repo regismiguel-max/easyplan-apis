@@ -30,6 +30,9 @@ module.exports = (sequelize, Sequelize) => {
         code: {
             type: Sequelize.STRING
         },
+        lotePay: {
+            type: Sequelize.JSON
+        },
         authenticated: {
             type: Sequelize.BOOLEAN
         },
