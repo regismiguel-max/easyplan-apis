@@ -489,33 +489,15 @@ sendMessageSarah = async (req, res) => {
                     apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
                     number: element.number,
                     country: "+55",
-                    text: `Olá, ${element.name}! Tudo bem?
+                    text: `Olá, ${element.name}! Bom dia.
 
-🚨 Nova Oferta de Plano da Easyplan 🚨
+Notamos que há um atraso na sua mensalidade do plano de saúde.
 
-Titular: ${element.name}
+Queremos reforçar que estamos aqui para ajudar. Nosso objetivo é garantir a continuidade do seu atendimento e evitar qualquer transtorno, como a suspensão dos serviços ou o cancelamento do plano por inadimplência.
 
-Você recebeu por e-mail uma nova opção de plano de saúde com mais benefícios, melhor rede credenciada e sem burocracia!
+Se estiver enfrentando alguma dificuldade, conte com a gente para buscar a melhor solução juntos. 🤝
 
-✔️ Sem novas carências
-
-✔️ Menor valor
-
-✔️ Rede credenciada ampliada
-
-✔️ Reajuste só em abril/26
-
-✔️ Mesmos dias de vigência e vencimento
-
-📅 Para aderir, basta pagar o boleto de julho/25, que estará disponível em breve. Lembrando que as faturas anteriores devem estar quitadas.
-
-👉 Confira todos os detalhes no e-mail que te enviamos!
-
-📌 Importante: essa nova oferta surgiu após o reajuste de 37,55% anunciado pela Klini, aplicado a partir de julho/25.
-
-   
-
-📩 Dúvidas? Responda por aqui mesmo ou envie e-mail para: relacionamento@easyplan.com.br
+Fale conosco para regularizar ou negociar da forma mais tranquila possível.
 `,
                     campaignName: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",
                     extData: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",

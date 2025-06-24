@@ -46,7 +46,7 @@ morganBody(app, {
     logMethod: true,
     logStatusCode: true,
     logReqDateTime: true,
-    maxBodyLength: 1000,
+    maxBodyLength: 5 * 1024 * 1024,
     skip: (req, res) => req.originalUrl === '/favicon.ico'
 });
 
