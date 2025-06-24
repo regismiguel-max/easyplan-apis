@@ -44,7 +44,7 @@ export default class SaveTemplateUseCase implements ISaveTemplateUseCase {
         const emailTemplate = new TemplateEntity(
             dto.templateName,
             fileName,
-            'email'
+            dto.typeTemplate
         );
 
         // Enviar para o repository
