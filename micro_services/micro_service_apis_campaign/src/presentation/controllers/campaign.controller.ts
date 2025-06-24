@@ -15,6 +15,7 @@ import Template from "../../domain/entities/interfaces/template.interface";
 import IEditCampaingUseCase from "../../domain/contracts/usecase/IEditEmailCampaignUseCase";
 import IDeleteCampaignUseCase from "../../domain/contracts/usecase/IDeleteCampaignUseCase";
 import IGetCampaignUseCase from "../../domain/contracts/usecase/IGetCampaigUseCase";
+import TemplateRepository from "../../infrastructure/repositories/template.repository";
 
 
 class CampaignController {
@@ -26,8 +27,9 @@ class CampaignController {
         private getCampaignUseCase?: IGetCampaignUseCase,
         private editCampaign?: IEditCampaingUseCase,
         private deleteCampaign?: IDeleteCampaignUseCase,
-        private emailCampaignRepository?: CampaignRepository,
-        private editTemplateUseCase?: EditTemplateUseCase
+        private campaignRepository?: CampaignRepository,
+        private editTemplateUseCase?: EditTemplateUseCase,
+        private templateRepository?: TemplateRepository
     ) {}
 
     public async save(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -183,11 +185,46 @@ class CampaignController {
                     message: 'Nenhuma campanha encontrada',
                     data: result
                 });
+                return
             }
             // Retornar para o Front-end a lista de Campanhas de E-mail
             res.status(200).json({ 
                 success: true,
                 message: 'Lista de campanhas recuperada com sucesso!',
+                data: result
+            });
+            return            
+        } catch (error) {
+            console.error("Erro ao buscar campanhas:", error);
+        
+            res.status(500).json({
+                status: 500,
+                message: "Erro interno no servidor",
+                error: error instanceof Error ? error.message : error
+            });
+            return
+        }
+    }
+    public async getAllTemplates(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            // const result: Campaign[] | undefined = await this.getAllTemplateUseCase?.execute(typeCampaign);
+
+            const result = await this.templateRepository?.findAllTemplates();
+            console.log('Retorno de todos os templates: ', result);
+            
+            // Validar retorno
+            if (!result) {
+                res.status(404).json({ 
+                    success: false,
+                    message: 'Nenhum template encontrado',
+                    data: result
+                });
+                return
+            }
+            // Retornar para o Front-end a lista de Campanhas de E-mail
+            res.status(200).json({ 
+                success: true,
+                message: 'Lista de templates recuperada com sucesso!',
                 data: result
             });
             return            
