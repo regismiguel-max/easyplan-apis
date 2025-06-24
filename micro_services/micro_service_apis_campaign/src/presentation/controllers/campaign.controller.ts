@@ -139,8 +139,9 @@ class CampaignController {
     public async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const id = Number(req.query.id);
+            const typeCampaign = req.query.typeCampaign as string;
     
-            const result: string | undefined = await this.deleteCampaign?.execute(id);
+            const result: string | undefined = await this.deleteCampaign?.execute(id, typeCampaign);
 
             if (!result || result === 'Falha na deleção') {
                 res.status(500).json({

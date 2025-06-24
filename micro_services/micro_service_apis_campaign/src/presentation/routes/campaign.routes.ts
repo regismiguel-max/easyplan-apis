@@ -63,7 +63,8 @@ const filtersRepository3 = new FiltersRepository();
 const emailScheduleRepository3 = new EmailCampaignScheduleRepository();
 const emailStatistics = new StatisticsEmailCampaignRepository()
 const recipientGroupRepository2 = new RecipientGroupRepository();
-const deleteCampaignUseCase = new DeleteCampaignUseCase(campaignRepository7, filtersRepository3, recipientGroupRepository2, emailScheduleRepository3, emailStatistics);
+const whatsStatisticsRepository2 = new StatisticsWhatsCampaignRepository();
+const deleteCampaignUseCase = new DeleteCampaignUseCase(campaignRepository7, filtersRepository3, recipientGroupRepository2, emailScheduleRepository3, emailStatistics, whatsStatisticsRepository2);
 const campaignController7 = new CampaignController(undefined, undefined, undefined, undefined, undefined, deleteCampaignUseCase);
 router.delete('/delete', campaignController7.delete.bind(campaignController7));
 

@@ -1,3 +1,3 @@
 export default interface IDeleteCampaignUseCase {
-    execute(id: number): Promise<string>;
+    execute(id: number, typeCampaign: string): Promise<string>;
 }
