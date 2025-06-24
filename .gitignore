@@ -29,8 +29,9 @@ uploads/
 **/templateHTML/
 
 # Logs
-logs/
-**/logs/
+logs/apis*
+logs/cron
+logs/worker
 *.log
 
 # Banco de dados tempor�rios (caso existam)
