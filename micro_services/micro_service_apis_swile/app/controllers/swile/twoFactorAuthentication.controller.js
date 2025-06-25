@@ -43,6 +43,14 @@ exports.addTwoFactorAuthentication = async (req, res) => {
                                 req.body.email = user.email;
                                 req.body.name = user.name;
                                 req.body.whatsapp = user.celular;
+
+                                const swileRequests = await SwileTwoFactorAuthenticationRequest.findAll({
+                                    where: { lote_ID: req.body.lote_ID },
+                                    order: [['createdAt', 'ASC']]
+                                });
+
+                                const firstRequest = swileRequests[0];
+
                                 const dados = {
                                     user_ID: req.userId,
                                     whatsapp: bcrypt.hashSync(user.celular.replace(/\D/g, ''), salt),
@@ -63,6 +71,7 @@ exports.addTwoFactorAuthentication = async (req, res) => {
                                     whatsapp: bcrypt.hashSync(user.celular.replace(/\D/g, ''), salt),
                                     email: bcrypt.hashSync(user.email, salt),
                                     code: bcrypt.hashSync(code, salt),
+                                    lotePay: firstRequest?.lotePay || null,
                                     authenticated: false,
                                 }
 
