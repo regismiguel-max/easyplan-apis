@@ -50,6 +50,15 @@ module.exports = (sequelize, Sequelize) => {
         },
         termo_aditivo_URL: {
             type: Sequelize.STRING
+        },
+        termo_aditivo_2: {
+            type: Sequelize.STRING
+        },
+        termo_aditivo_ID_2: {
+            type: Sequelize.STRING
+        },
+        termo_aditivo_URL_2: {
+            type: Sequelize.STRING
         }
     });
 

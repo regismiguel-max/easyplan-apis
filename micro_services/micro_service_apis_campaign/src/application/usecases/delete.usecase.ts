@@ -4,6 +4,7 @@ import filtersRepository from "../../infrastructure/repositories/filters.reposit
 import { EmailCampaignScheduleRepository } from "../../infrastructure/repositories/email-schedule.repository";
 import RecipientGroupRepository from "../../infrastructure/repositories/recipient-group.repository";
 import StatisticsEmailCampaignRepository from "../../infrastructure/repositories/statistics-email-campaign.repository";
+import StatisticsWhatsCampaignRepository from "../../infrastructure/repositories/statistics-whats-campaign.repository";
 
 export default class DeleteCampaignUseCase implements IDeleteCampaignUseCase {
     constructor(
@@ -11,9 +12,10 @@ export default class DeleteCampaignUseCase implements IDeleteCampaignUseCase {
         private filtersRepository: filtersRepository,
         private recipientGroupRepository: RecipientGroupRepository,
         private emailScheduleRepository: EmailCampaignScheduleRepository,
-        private emailStatistics: StatisticsEmailCampaignRepository
+        private emailStatistics: StatisticsEmailCampaignRepository,
+        private whatsStatistics:StatisticsWhatsCampaignRepository
     ) {}
-    async execute(id: number): Promise<string> {
+    async execute(id: number, typeCampaign: string): Promise<string> {
         if (!id) throw new Error("ID da campanha é obrigatório para exclusão.");
 
         // 1. Deleta filtros associados
@@ -25,8 +27,12 @@ export default class DeleteCampaignUseCase implements IDeleteCampaignUseCase {
         await this.recipientGroupRepository.deleteRecipientsGroup(id);
         console.log('Grupo destinatário deletados');
         
-        await this.emailStatistics.delete(id);
-        console.log('Estatísticas deletadas');
+        if(typeCampaign === 'email') {
+            await this.emailStatistics.delete(id);
+            console.log('Estatísticas deletadas');
+        } else {
+            await this.whatsStatistics.delete(id);
+        }
         // 2. Deleta agendamento, se houver
         // await this.emailScheduleRepository.deleteByCampaignId(id);
 

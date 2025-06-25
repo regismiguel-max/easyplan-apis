@@ -19,6 +19,24 @@ export default class TemplateRepository implements ITemplateRepository {
         return pureObject;
     }
 
+    async findAllTemplates(): Promise<Template[]> {
+        const templatesDB = await CampaignTemplateModel.findAll({
+            order: [['createdAt', 'DESC']]
+        });
+
+        let response: Template[] = [];
+
+        templatesDB.forEach(ec => {
+            const pureObject = ec.get({plain: true});
+            console.log('Entrando template por template: ', pureObject);
+            
+            response.push(pureObject);
+        });
+        console.log('Veja a resposta do repository: ', response);
+        
+        return response;
+    }
+
     public async findById(id: number): Promise<Template> {
         const result = await CampaignTemplateModel.findByPk(id);
         

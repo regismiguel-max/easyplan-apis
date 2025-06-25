@@ -63,7 +63,8 @@ const filtersRepository3 = new FiltersRepository();
 const emailScheduleRepository3 = new EmailCampaignScheduleRepository();
 const emailStatistics = new StatisticsEmailCampaignRepository()
 const recipientGroupRepository2 = new RecipientGroupRepository();
-const deleteCampaignUseCase = new DeleteCampaignUseCase(campaignRepository7, filtersRepository3, recipientGroupRepository2, emailScheduleRepository3, emailStatistics);
+const whatsStatisticsRepository2 = new StatisticsWhatsCampaignRepository();
+const deleteCampaignUseCase = new DeleteCampaignUseCase(campaignRepository7, filtersRepository3, recipientGroupRepository2, emailScheduleRepository3, emailStatistics, whatsStatisticsRepository2);
 const campaignController7 = new CampaignController(undefined, undefined, undefined, undefined, undefined, deleteCampaignUseCase);
 router.delete('/delete', campaignController7.delete.bind(campaignController7));
 
@@ -83,9 +84,13 @@ const sendEmailController2 = new SendEmailCampaignController(undefined, webHookU
 router.post('/statistic', sendEmailController2.webHookStatistics.bind(sendEmailController2));
 
 const templateRepository6 = new TemplateRepository();
-const editTemplateUseCase = new EditTemplateUseCase(templateRepository6)
+const editTemplateUseCase = new EditTemplateUseCase(templateRepository6);
 const campaignController8 = new CampaignController(undefined, undefined, undefined, undefined, undefined, undefined, undefined, editTemplateUseCase);
-router.put('/editTemplate', campaignController8.editTemplate.bind(campaignController8))
+router.put('/editTemplate', campaignController8.editTemplate.bind(campaignController8));
+
+const templateRepository7 = new TemplateRepository();
+const campaignController9 = new CampaignController(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, templateRepository7);
+router.get('/templates', campaignController9.getAllTemplates.bind(campaignController9));
 
 router.get('/:id/status', async (req: Request, res: Response) => {
     const id = Number(req.params);

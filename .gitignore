@@ -1,14 +1,14 @@
-# Diretórios de dependências
+# Diretï¿½rios de dependï¿½ncias
 node_modules/
 **/node_modules/
 
-# Build e arquivos temporários
+# Build e arquivos temporï¿½rios
 dist/
 build/
 .tmp/
 *.log
 
-# Configurações do sistema
+# Configuraï¿½ï¿½es do sistema
 .DS_Store
 Thumbs.db
 
@@ -26,13 +26,15 @@ sslcert/
 # Uploads e arquivos enviados
 uploads/
 **/uploads/
+**/templateHTML/**
 
 # Logs
-logs/
-**/logs/
+logs/apis*
+logs/cron
+logs/worker
 *.log
 
-# Banco de dados temporários (caso existam)
+# Banco de dados temporï¿½rios (caso existam)
 *.sqlite
 *.sqlite3
 *.db
@@ -55,7 +57,7 @@ pids/
 ecosystem.config.js
 process.json
 
-# Sessões
+# Sessï¿½es
 sessions/
 *.session
 
@@ -71,6 +73,6 @@ dump.rdb
 appendonly.aof
 nodes.conf
 
-# Bull (caso use armazenamento em disco para jobs ou logs temporários)
+# Bull (caso use armazenamento em disco para jobs ou logs temporï¿½rios)
 bull-queue-*
 bull-board-logs/

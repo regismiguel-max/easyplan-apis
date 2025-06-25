@@ -155,8 +155,31 @@ exports.orderSummary = async (request_ID, resend) => {
         let token = await this.authSwile();
         if (!token) return errorAuthSwile(request_ID);
 
+        let totalBonificacoes = 0;
+
         const SwileRequest = await SwileTwoFactorAuthenticationRequest.findOne({ where: { id: request_ID } });
         if (!SwileRequest) return errorSummary(request_ID);
+
+        if (resend) {
+            if (!Array.isArray(SwileRequest.lotePay)) return errorSummary(request_ID);
+
+            for (const swl of SwileRequest.lotePay) {
+                totalBonificacoes += Number(swl.cardValues[0].value);
+            }
+
+            // Atualiza o status do lote para "PROCESSANDO"
+            const updatedLote = await LoteBonuses.update(
+                { status: 'PROCESSANDO', disabled: true },
+                { where: { id: SwileRequest.lote_ID } }
+            );
+
+            if (updatedLote[0] === 0) return errorSummary(request_ID);
+
+            // Atualizando o status das bonificações
+            await Bonuses.update({ status: 'PROCESSANDO' }, { where: { idLoteBonuses: SwileRequest.lote_ID } });
+
+            return paymentsBonuses(token, SwileRequest.lotePay, totalBonificacoes, request_ID, SwileRequest, resend);
+        }
 
         // Atualiza o status do lote para "PROCESSANDO"
         const updatedLote = await LoteBonuses.update(
@@ -169,7 +192,6 @@ exports.orderSummary = async (request_ID, resend) => {
         const bonuses = await Bonuses.findAll({ where: { idLoteBonuses: SwileRequest.lote_ID } });
         if (!bonuses.length) return errorSummary(request_ID);
 
-        let totalBonificacoes = 0;
         const bonusMap = new Map();
 
         // Agrupando bonificações por CPF
@@ -193,9 +215,11 @@ exports.orderSummary = async (request_ID, resend) => {
 
         bonusMap.forEach((bonus, cpf) => {
             const wallet = walletMap.get(cpf);
-            if (!wallet || Number(wallet.saldoDisponivel) <= 0) return;
+            const saldo = Number(String(wallet?.saldoDisponivel || '0').replace(',', '.'));
 
-            totalBonificacoes += wallet.saldoDisponivel;
+            if (!wallet || isNaN(saldo) || saldo <= 0) return;
+
+            totalBonificacoes += saldo;
 
             const formattedCPF = cpf.replace(/\D/g, '')
                 .replace(/(\d{3})(\d)/, '$1.$2')
@@ -205,13 +229,13 @@ exports.orderSummary = async (request_ID, resend) => {
 
             lotePay.push({
                 document: formattedCPF,
-                cardValues: [{ card: "v300", value: Number(wallet.saldoDisponivel) }],
+                cardValues: [{ card: "v300", value: saldo }],
             });
 
             lotePayment.push({
                 walletID: wallet.id,
                 document: formattedCPF,
-                value: Number(wallet.saldoDisponivel),
+                value: saldo,
                 saldoProvisionado: wallet.saldoProvisionado,
                 saldoDisponivel: wallet.saldoDisponivel,
             });
@@ -219,10 +243,6 @@ exports.orderSummary = async (request_ID, resend) => {
 
         // Atualizando o status das bonificações
         await Bonuses.update({ status: 'PROCESSANDO' }, { where: { idLoteBonuses: SwileRequest.lote_ID } });
-
-        if (resend) {
-            return paymentsBonuses(token, lotePay, totalBonificacoes, request_ID, SwileRequest, resend);
-        }
 
         for (const wl of lotePayment) {
             try {
@@ -248,6 +268,8 @@ exports.orderSummary = async (request_ID, resend) => {
                 return errorProdutorPayments(request_ID);
             }
         }
+
+        await SwileTwoFactorAuthenticationRequest.update({ lotePay: lotePay }, { where: { id: SwileRequest.id } });
 
         return paymentsBonuses(token, lotePay, totalBonificacoes, request_ID, SwileRequest, resend);
     } catch (error) {
