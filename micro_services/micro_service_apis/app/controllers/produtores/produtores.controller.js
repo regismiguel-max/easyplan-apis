@@ -15,7 +15,7 @@ exports.addProdutor = async (req, res) => {
         dados_acesso_ID: req.body.dados_acesso_ID,
         contato_ID: req.body.contato_ID,
         endereco_ID: req.body.endereco_ID,
-        situacao_ID: req.body.situacao_ID,
+        situacao_ID: 1,
         is_supervisor: req.body.is_supervisor,
     })
         .then(async pro => {

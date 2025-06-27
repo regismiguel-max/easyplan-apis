@@ -27,6 +27,7 @@ sslcert/
 uploads/
 **/uploads/
 **/templateHTML/**
+comunicados/
 
 # Logs
 logs/apis*

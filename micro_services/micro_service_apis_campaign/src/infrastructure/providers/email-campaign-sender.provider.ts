@@ -78,7 +78,11 @@ export default class EmailCampaignSender implements ICampaignSenderStrategy {
 
   private buildEmailWithPersonalizations(data: SendEmailCampaignDTO): MailDataRequired {
     if(!data.baseData.subject) throw new Error('Campanha de Email sem Subject!');
-    if (Array.isArray(data.recipientGroup) && data.recipientGroup.some(item => typeof item !== 'string')) throw new Error('❌ recipientGroup não pode ser um array de números!');
+    
+    //Sanetiza o array antes da validação para previnir erros de campos null
+    if ( Array.isArray(data.recipientGroup) ) { data.recipientGroup = data.recipientGroup.filter( item => typeof item === 'string' && item.trim() !== '' ); };
+
+    if( data.recipientGroup.some(item => typeof item !== 'string') ) throw new Error('❌ recipientGroup não pode ser um array de números!');
 
     const dataEnvio = new Date().toISOString()
 

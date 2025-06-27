@@ -18,7 +18,7 @@ exports.addCorretora = async (req, res) => {
         endereco_ID: req.body.endereco_ID,
         supervisor_ID: req.body.supervisor_ID,
         dados_bancarios_ID: req.body.dados_bancarios_ID,
-        situacao_ID: req.body.situacao_ID,
+        situacao_ID: 3,
         categoria_ID: req.body.categoria_ID,
         pertence_corretora_ID: req.body.pertence_corretora_ID,
         contrato_ID: req.body.contrato_ID,

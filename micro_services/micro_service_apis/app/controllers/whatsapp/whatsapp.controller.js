@@ -489,18 +489,76 @@ sendMessageSarah = async (req, res) => {
                     apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
                     number: element.number,
                     country: "+55",
-                    text: `Olá, ${element.name}! Bom dia.
+                    text: `Olá, ${element.name}, boa tarde!
 
-Notamos que há um atraso na sua mensalidade do plano de saúde.
+Verificamos que sua mensalidade do plano de saúde *ainda consta em aberto*.
 
-Queremos reforçar que estamos aqui para ajudar. Nosso objetivo é garantir a continuidade do seu atendimento e evitar qualquer transtorno, como a suspensão dos serviços ou o cancelamento do plano por inadimplência.
+⚠️ É importante regularizar o quanto antes para evitar a *suspensão do atendimento* e o *risco de cancelamento do plano por inadimplência*.
 
-Se estiver enfrentando alguma dificuldade, conte com a gente para buscar a melhor solução juntos. 🤝
+Se estiver passando por alguma dificuldade, estamos aqui para *ajudar com uma negociação que se ajuste à sua realidade*.
 
-Fale conosco para regularizar ou negociar da forma mais tranquila possível.
+Fale com a gente e vamos resolver isso da forma mais simples possível. 🤝
 `,
-                    campaignName: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",
-                    extData: "Envio HSM WhatsApp oferta mig Klini Nova - 16-06-2025",
+                    campaignName: "Envio - 26-06-2025",
+                    extData: "Envio - 26-06-2025",
+                    extFlag: 1,
+                    hidden: false
+                });
+
+                console.log(`✅ Mensagem enviada para ${element.name} (${element.number})`);
+                enviados.push(element.number);
+
+            } catch (erro) {
+                console.error(`❌ Erro ao enviar para ${element.name} (${element.number}):`, erro.message);
+                falhas.push({ number: element.number, name: element.name, erro: erro.message });
+            }
+
+            await sleep(delayMs);
+        }
+    }
+
+    return res.send({
+        message: "Processo concluído.",
+        sucesso: true,
+        enviados: enviados.length,
+        falhas: falhas.length,
+        detalhesFalhas: falhas
+    });
+};
+
+
+sendMessageAPIOficial = async (req, res) => {
+    const clientes = req.body.clientes;
+    const batchSize = 20;
+    const delayMs = 300;
+
+    if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
+        return res.status(400).send({
+            message: "Nenhum cliente recebido.",
+            sucesso: false
+        });
+    }
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const falhas = [];
+    const enviados = [];
+
+    for (let i = 0; i < clientes.length; i += batchSize) {
+        const batch = clientes.slice(i, i + batchSize);
+
+        for (const element of batch) {
+            try {
+                console.log(`[${element.number}] Enviando mensagem para ${element.name}...`);
+
+                await axios.post('https://afinidade.atenderbem.com/int/enqueueMessageToSend', {
+                    queueId: 27,
+                    apiKey: "092244c731cb42da9f3ebcf785f9189f",
+                    headerFile: "https://afinidade.atenderbem.com:443/static/downloadMedia?id=161019&download=false&auth=_jCk80qqqL5r55K6jH4gfcdB6bm0G_dwp0vfQcDmJC8=",
+                    templateId: 41,
+                    number: element.number,
+                    country: "+55",
+                    campaignName: "Informativo dos Hospitais Nova Saúde - 26-06-2025",
+                    extData: "Informativo dos Hospitais Nova Saúde - 26-06-2025",
                     extFlag: 1,
                     hidden: false
                 });
@@ -537,5 +595,6 @@ module.exports = {
     sendMessageAlertLote,
     sendMessageSituacaoProdutor,
     sendMessageLinkImageProdutor,
-    sendMessageSarah
+    sendMessageSarah,
+    sendMessageAPIOficial
 };

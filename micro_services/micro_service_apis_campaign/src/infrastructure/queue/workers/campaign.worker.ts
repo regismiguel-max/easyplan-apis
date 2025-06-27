@@ -224,6 +224,7 @@ async function checkCampaignStatus(campaignId: string | number, whatsPayloads?: 
         throw new Error('Falha total no disparo da campanha');
       }
 
+      await repository.updateStatus(campaignId, CampaignStatus.PARTIALLY_SENT);
       console.log(`⚠️ Campanha ${campaignId} concluída com falhas, verificar logs`);
       log(`⚠️ Campanha ${campaignId} concluída com falhas, verificar logs`);
     } else {

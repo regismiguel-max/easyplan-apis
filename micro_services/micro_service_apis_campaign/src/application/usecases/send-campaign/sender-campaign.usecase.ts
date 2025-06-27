@@ -107,13 +107,13 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
           chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
 
         } else if(campaign.campaign.typeCampaign === 'email') {
-          clientEmailMock = [
-            'devbueno3@gmail.com',
-            'buedro7@gmail.com'
-          ]
+          // clientEmailMock = [
+          //   'devbueno3@gmail.com',
+          //   'buedro7@gmail.com'
+          // ]
 
-          // chunks = await this.splitIntoChunks(recipientsGroupEmails, chunkSize);
-          chunks = await this.splitIntoChunks(clientEmailMock, chunkSize);
+          chunks = await this.splitIntoChunks(recipientsGroupEmails, chunkSize);
+          // chunks = await this.splitIntoChunks(clientEmailMock, chunkSize);
         }
 
         const totalChunks = chunks.length;
@@ -199,8 +199,8 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
 
         //--------------------------------------------------------------- 11° Passo criar estatísticas da Campanha e atualizar o status da campanha em questão ------------------------------------------------------
         if(baseData.typeCampaign === 'email') {
-          // await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId);
-          await this.statisticsRepository.create(clientEmailMock.length, campaignId);
+          await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId);
+          // await this.statisticsRepository.create(clientEmailMock.length, campaignId);
         } else if(baseData.typeCampaign === 'whatsapp') {
           await this.whatsStatisticsRepository.create(clientNumbers.length, campaignId)
         }

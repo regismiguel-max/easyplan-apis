@@ -25,4 +25,9 @@ module.exports = (app) => {
         "/whatsapp/operacao/sendmessagesarah",
         controller.sendMessageSarah
     );
+
+    app.post(
+        "/whatsapp/operacao/sendmessage/api/oficial",
+        controller.sendMessageAPIOficial
+    );
 };
