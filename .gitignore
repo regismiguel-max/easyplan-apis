@@ -26,7 +26,7 @@ sslcert/
 # Uploads e arquivos enviados
 uploads/
 **/uploads/
-**/templateHTML/**
+# **/templateHTML/**
 comunicados/
 
 # Logs
