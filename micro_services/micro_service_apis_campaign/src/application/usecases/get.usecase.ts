@@ -14,24 +14,23 @@ export default class GetCampaignUseCase implements IGetCampaignUseCase {
         if (!result) {
             throw new Error("error");
         }
-
-        const absolutePathTemplateHTML = path.resolve(__dirname, '../../../templateHTML');
-        console.log('absolutePathTemplateHTML local: ', absolutePathTemplateHTML);
         
         
         if(result.campaignTemplateModel) {
-            let baseName: string = '';
-
-            let absolutePath: string = '';
-
-            if(result.campaignTemplateModel.templateContent.includes('C:') || result.campaignTemplateModel.templateContent.includes('D:')){
-                baseName = path.basename(result.campaignTemplateModel.templateContent);
-                console.log(baseName);
+            // let baseName: string = '';
+            // let absolutePath: string = '';
+            // if(result.campaignTemplateModel.templateContent.includes('C:') || result.campaignTemplateModel.templateContent.includes('D:')){
+                //     baseName = path.basename(result.campaignTemplateModel.templateContent);
+                //     console.log(baseName);
+                //     absolutePath = path.join(absolutePathTemplateHTML, baseName);
+                // } else {
+            // }
                 
-                absolutePath = path.join(absolutePathTemplateHTML, baseName);
-            } else {
-                absolutePath = path.join(absolutePathTemplateHTML, result.campaignTemplateModel.templateContent);
-            }
+                
+            const absolutePathTemplateHTML = path.resolve(__dirname, '../../../templateHTML');
+            console.log('absolutePathTemplateHTML local: ', absolutePathTemplateHTML);
+            
+            const absolutePath = path.join(absolutePathTemplateHTML, result.campaignTemplateModel.templateContent);
 
             console.log('absolutePath local: ', absolutePath);
 

@@ -17,6 +17,10 @@ import IDeleteCampaignUseCase from "../../domain/contracts/usecase/IDeleteCampai
 import IGetCampaignUseCase from "../../domain/contracts/usecase/IGetCampaigUseCase";
 import TemplateRepository from "../../infrastructure/repositories/template.repository";
 
+//Get Templates
+import path from "path";
+import * as fs from 'fs';
+
 
 class CampaignController {
 
@@ -210,23 +214,39 @@ class CampaignController {
         try {
             // const result: Campaign[] | undefined = await this.getAllTemplateUseCase?.execute(typeCampaign);
 
-            const result = await this.templateRepository?.findAllTemplates();
-            console.log('Retorno de todos os templates: ', result);
+            const templates = await this.templateRepository?.findAllTemplates();
+            console.log('Retorno de todos os templates: ', templates);
             
             // Validar retorno
-            if (!result) {
+            if (!templates) {
                 res.status(404).json({ 
                     success: false,
                     message: 'Nenhum template encontrado',
-                    data: result
+                    data: templates
                 });
                 return
             }
+
+            for(let template of templates) {
+                const absolutePathTemplateHTML = path.resolve(__dirname, '../../../templateHTML');
+                console.log('absolutePathTemplateHTML local: ', absolutePathTemplateHTML);
+                            
+                const absolutePath = path.join(absolutePathTemplateHTML, template.templateContent);
+                
+                console.log('absolutePath local: ', absolutePath);
+                
+                const htmlContent = fs.readFileSync(absolutePath, 'utf-8');
+                            
+                console.log('html lido: ', htmlContent);
+                            
+                template.templateContent = htmlContent;
+            }
+
             // Retornar para o Front-end a lista de Campanhas de E-mail
             res.status(200).json({ 
                 success: true,
                 message: 'Lista de templates recuperada com sucesso!',
-                data: result
+                data: templates
             });
             return            
         } catch (error) {
