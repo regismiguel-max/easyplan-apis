@@ -175,7 +175,7 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'dropped'
      */
-    public async processDroppedEvent(campaignId: number, timestamp: Date, emailRecipient: string, event: string, reason?: string) {
+    public async processDroppedEvent(campaignId: number, timestamp: Date, emailRecipient: string, event: string, reason: string) {
         const transaction = await connection_db.transaction();
         try {
             const statistics = await this.getOrCreateStatistics(campaignId, transaction);
@@ -189,7 +189,38 @@ export default class EmailCampaignStatisticsService {
             const result = await FailedEmailModel.create({
                 campaignId,
                 event,
-                emailRecipient
+                emailRecipient,
+                reason
+            });
+
+            if(!result) { throw new Error(`Houve algum erro na persistência dos emails que falharam - Campanha de id ${campaignId}`); }
+
+            console.log('Failed email persistido');
+            
+            return;
+        } catch (error) {
+            await transaction.rollback();
+            console.error('❌ Erro ao processar evento dropped:', error);
+            throw error;
+        }
+    }
+
+    public async processBounceEvent(campaignId: number, timestamp: Date, emailRecipient: string, event: string, reason: string) {
+        const transaction = await connection_db.transaction();
+        try {
+            const statistics = await this.getOrCreateStatistics(campaignId, transaction);
+
+            await statistics.increment('bounce', { by: 1, transaction });
+            await statistics.reload({ transaction });
+
+            await transaction.commit();
+            console.log(`✅ Evento 'bounce' registrado para campanha ${campaignId} ${reason ? `(Motivo: ${reason})` : ''}`);
+
+            const result = await FailedEmailModel.create({
+                campaignId,
+                event,
+                emailRecipient,
+                reason
             });
 
             if(!result) { throw new Error(`Houve algum erro na persistência dos emails que falharam - Campanha de id ${campaignId}`); }
@@ -226,6 +257,7 @@ export default class EmailCampaignStatisticsService {
         eventType: string,
         timestamp: Date,
         emailRecipient: string,
+        reason: string,
         metadata?: Record<string, any>
     ) {
         switch (eventType) {
@@ -239,7 +271,10 @@ export default class EmailCampaignStatisticsService {
                 await this.processOpenEvent(emailCampaignId, timestamp);
                 break;
             case 'dropped':
-                await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, metadata?.reason);
+                await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, reason);
+                break;
+            case 'bounce':
+                await this.processBounceEvent(emailCampaignId, timestamp, emailRecipient, eventType, reason);
                 break;
             default:
                 console.warn(`⚠️ Evento desconhecido: ${eventType}`);
