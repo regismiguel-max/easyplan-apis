@@ -5,6 +5,7 @@ import StatisticsEmailCampaignModel, {
 } from "../database/models/statistics-email-campaign.model";
 
 import connection_db from "../database/config/database";
+import FailedEmailModel from "../database/models/failed-emails.model";
 
 export default class EmailCampaignStatisticsService {
 
@@ -174,16 +175,28 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'dropped'
      */
-    public async processDroppedEvent(emailCampaignId: number, timestamp: Date, reason?: string) {
+    public async processDroppedEvent(campaignId: number, timestamp: Date, emailRecipient: string, event: string, reason?: string) {
         const transaction = await connection_db.transaction();
         try {
-            const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
+            const statistics = await this.getOrCreateStatistics(campaignId, transaction);
 
             await statistics.increment('dropped', { by: 1, transaction });
             await statistics.reload({ transaction });
 
             await transaction.commit();
-            console.log(`✅ Evento 'dropped' registrado para campanha ${emailCampaignId} ${reason ? `(Motivo: ${reason})` : ''}`);
+            console.log(`✅ Evento 'dropped' registrado para campanha ${campaignId} ${reason ? `(Motivo: ${reason})` : ''}`);
+
+            const result = await FailedEmailModel.create({
+                campaignId,
+                event,
+                emailRecipient
+            });
+
+            if(!result) { throw new Error(`Houve algum erro na persistência dos emails que falharam - Campanha de id ${campaignId}`); }
+
+            console.log('Failed email persistido');
+            
+            return;
         } catch (error) {
             await transaction.rollback();
             console.error('❌ Erro ao processar evento dropped:', error);
@@ -212,6 +225,7 @@ export default class EmailCampaignStatisticsService {
         emailCampaignId: number,
         eventType: string,
         timestamp: Date,
+        emailRecipient: string,
         metadata?: Record<string, any>
     ) {
         switch (eventType) {
@@ -225,7 +239,7 @@ export default class EmailCampaignStatisticsService {
                 await this.processOpenEvent(emailCampaignId, timestamp);
                 break;
             case 'dropped':
-                await this.processDroppedEvent(emailCampaignId, timestamp, metadata?.reason);
+                await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, metadata?.reason);
                 break;
             default:
                 console.warn(`⚠️ Evento desconhecido: ${eventType}`);
