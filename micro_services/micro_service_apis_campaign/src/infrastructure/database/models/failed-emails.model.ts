@@ -8,6 +8,7 @@ interface FailedEmailAttributes {
     campaignId: number; // Nova referência à campanha
     event: string;
     emailRecipient: string;
+    reason: string;
 }
 
 // Definição dos atributos que são opcionais na criação
@@ -38,6 +39,10 @@ const FailedEmailModel = connection_db.define<Model<FailedEmailAttributes, Faile
             type: DataTypes.STRING,
             allowNull: false
         },
+        reason: {
+            type: DataTypes.STRING,
+            allowNull: false
+        }
     },
     {
         tableName: "cliente_campanha_email_failed",

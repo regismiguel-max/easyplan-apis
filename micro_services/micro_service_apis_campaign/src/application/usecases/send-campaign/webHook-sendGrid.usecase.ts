@@ -36,12 +36,16 @@ export default class WebHookSendGridUseCase {
                     continue;
                 }
 
+                let reason: string = '';
+                event.reason ? reason = event.reason : reason = event.response;
+
                 // Gerar ID único para o evento
                 const eventId = `${campaignId}:${eventType}:${email}:${messageId}`;
                 const redisKey = `sendgrid:event:${eventId}`;
 
                 console.log('O id do evento gerado: ', eventId);
                 console.log('A chave criada: ', redisKey);
+                console.log('Razão do erro: ', reason);
                 console.log(`Processando evento: ${eventType} para campanha ${campaignId}, email ${email}`);
 
                 // Verificar se o evento já foi processado (usando Redis)
@@ -72,7 +76,7 @@ export default class WebHookSendGridUseCase {
     
                 // NOVO EVENTO
                 // Processar o evento usando o serviço de estatísticas
-                await this.statisticsService.processEvent(campaignId, eventType, timestamp, email);
+                await this.statisticsService.processEvent(campaignId, eventType, timestamp, email, reason);
                 
                 // Marcar o evento como processado no Redis
                 await redisClient.set(redisKey, '1', {EX: EXPIRATION_SECONDS});
