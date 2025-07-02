@@ -72,7 +72,7 @@ export default class WebHookSendGridUseCase {
     
                 // NOVO EVENTO
                 // Processar o evento usando o serviço de estatísticas
-                await this.statisticsService.processEvent(campaignId, eventType, timestamp);
+                await this.statisticsService.processEvent(campaignId, eventType, timestamp, email);
                 
                 // Marcar o evento como processado no Redis
                 await redisClient.set(redisKey, '1', {EX: EXPIRATION_SECONDS});

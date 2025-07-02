@@ -18,11 +18,16 @@ import CampaignModalityModel from './associations/campaign-modality.models';
 import CampaignUfsModel from './associations/campaign-ufs.models';
 import StatisticsWhatsCampaignModel from './statistics-whats-campaign.model';
 import CampaignMessageStatusesModel from './campaign-message-statuses.model';
+import FailedEmailModel from './failed-emails.model';
 
 export function associateModels() {
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + TEMPLATE ************************/
   CampaignTemplateModel.hasMany(CampaignModel, { foreignKey: 'templateId' });
   CampaignModel.belongsTo(CampaignTemplateModel, { foreignKey: 'templateId' });
+
+  //************************ RELACIONAMENTO CAMPAIGN + FAILED EMAILS ************************/
+  CampaignModel.hasMany(FailedEmailModel, {foreignKey: 'campaingId'});
+  FailedEmailModel.belongsTo(CampaignModel, {foreignKey: 'campaingId'});
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + STATISTICS ************************/
   StatisticsEmailCampaignModel.belongsTo(CampaignModel, { foreignKey: 'emailCampaignId'});
