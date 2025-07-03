@@ -90,21 +90,24 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
         const chunkSize = 500;
         let chunks: (string | number)[][] = [];
         if(campaign.campaign.typeCampaign === 'whatsapp'){
-          // clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
-          //   const ddd = rg.ddd_celular;
-          //   const celular = rg.celular;
+          if(process.env.NODE_ENV === 'development') {
+            clientNumbers = [
+              84994969191,
+              54992389702,
+              61993598991,
+              899929220040
+            ]
+            chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
+          } else {
+            clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
+              const ddd = rg.ddd_celular;
+              const celular = rg.celular;
+  
+              const number = ddd + celular;
+              return number;
+            }))];
+          }
 
-          //   const number = ddd + celular;
-          //   return number;
-          // }))];
-
-          clientNumbers = [
-            84994969191,
-            54992389702,
-            61993598991,
-            899929220040
-          ]
-          chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
 
         } else if(campaign.campaign.typeCampaign === 'email') {
           if(process.env.NODE_ENV === 'development') {
