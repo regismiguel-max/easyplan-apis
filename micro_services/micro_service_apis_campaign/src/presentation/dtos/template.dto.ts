@@ -27,7 +27,7 @@ class TemplateDTO {
     @IsNumber()
     @IsOptional()
     // @ValidateIf(o => !o.htmlData) // Apenas obrigatório se htmlContent NÃO estiver presente
-    public templateId?: number;
+    public id?: number;
     
     @IsNumber()
     @IsOptional()
@@ -39,7 +39,7 @@ class TemplateDTO {
         this.templateName = data.templateName;
         this.typeTemplate = data.typeTemplate;
 
-        if(data.templateId) this.templateId = data.templateId;
+        if(data.id) this.id = data.id;
         if(data.campaignId) this.campaignId = data.campaignId;
         // this.createdBy = data.createdBy ?? "";
     }
