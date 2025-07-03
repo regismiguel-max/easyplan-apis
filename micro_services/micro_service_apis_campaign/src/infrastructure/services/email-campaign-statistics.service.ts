@@ -170,6 +170,26 @@ export default class EmailCampaignStatisticsService {
             console.error('❌ Erro ao processar evento open:', error);
             throw error;
         }
+    
+    }
+    /**
+     * Processa evento 'click'
+     */
+    public async processClickEvent(emailCampaignId: number, timestamp: Date) {
+        const transaction = await connection_db.transaction();
+        try {
+            const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
+
+            await statistics.increment('click', { by: 1, transaction });
+            await statistics.reload({ transaction });
+
+            await transaction.commit();
+            console.log(`✅ Evento 'open' registrado para campanha ${emailCampaignId}`);
+        } catch (error) {
+            await transaction.rollback();
+            console.error('❌ Erro ao processar evento open:', error);
+            throw error;
+        }
     }
 
     /**
@@ -269,6 +289,9 @@ export default class EmailCampaignStatisticsService {
                 break;
             case 'open':
                 await this.processOpenEvent(emailCampaignId, timestamp);
+                break;
+            case 'click':
+                await this.processClickEvent(emailCampaignId, timestamp);
                 break;
             case 'dropped':
                 await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, reason);
