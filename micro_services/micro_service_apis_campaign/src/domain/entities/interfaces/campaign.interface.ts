@@ -14,6 +14,12 @@ export default interface Campaign {
     filterByPlan: boolean;
     filterByUf: boolean;
     filterByValidity: boolean;
+    filterByBirth: boolean;
+    filterByDay: boolean;
+    filterByMonth: boolean;
+    filterByYear: boolean;
+    filterByGender: boolean;
+    gender: string | null;
     createdAt?: Date | null;
     updatedAt?: Date | null;
 }

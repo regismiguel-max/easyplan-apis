@@ -37,7 +37,7 @@ export default class EditCampaignUseCase implements IEditCampaingUseCase{
         if (dataToUpdate.filters) {
             const { activeFiltersKey, activeFiltersValues } = dataToUpdate.filters;
 
-            const {filterResults, whereClause } = await this.filterService.processFiltersToSave(campaignEntity.baseInformations.id, activeFiltersKey, activeFiltersValues);
+            const {filterResults, whereClause } = await this.filterService.processFiltersToEdit(campaignEntity.baseInformations.id, activeFiltersKey, activeFiltersValues);
             
             Object.assign(response, filterResults);
 

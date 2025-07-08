@@ -23,6 +23,12 @@ interface EmailCampaignAttributes {
   filterByPlan: boolean;
   filterByUf: boolean;
   filterByValidity: boolean;
+  filterByBirth: boolean;
+  filterByDay: boolean;
+  filterByMonth: boolean;
+  filterByYear: boolean;
+  filterByGender: boolean;
+  gender: string | null;
 }
 
 interface EmailCampaignCreationAttributes extends Optional<EmailCampaignAttributes, keyof EmailCampaignAttributes> {}
@@ -89,7 +95,34 @@ const CampaignModel = connection_db.define<Model<EmailCampaignAttributes, EmailC
         allowNull: true,
     },
     filterByValidity: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+    },
+    filterByBirth: {
         type: DataTypes.BOOLEAN,
+        allowNull: true,
+    },
+    filterByDay: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false
+    },
+    filterByMonth: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false
+    },
+    filterByYear: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false
+    },
+    filterByGender: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+    },
+    gender: {
+        type: DataTypes.ENUM("Masculino", "Feminino"),
         allowNull: true,
     },
   },

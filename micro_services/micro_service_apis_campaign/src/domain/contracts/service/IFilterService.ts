@@ -7,4 +7,9 @@ export default interface IFilterService {
     activeFilters: ActiveFilterKey[], 
     activeFiltersValues: ActiveFiltersValues
   ): Promise<FilterProcessResponse>;
+  processFiltersToEdit(
+    campaignId: number, 
+    activeFilters: ActiveFilterKey[], 
+    activeFiltersValues: ActiveFiltersValues
+  ): Promise<FilterProcessResponse>;
 }

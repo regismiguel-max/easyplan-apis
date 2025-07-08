@@ -22,12 +22,15 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
         console.log('Inicio - apenas DTO: ', dto);
         
         const campaignEntity: CampaignEntity = await CampaignFactory.createNew(dto);
+        console.log('Entidade criada');
 
         if (!campaignEntity.validateCreation()) throw new Error('Nome, assunto, status e e-mail do remetente são obrigatórios para criar campanha');
 
         const dataToSave: DataToSave = await campaignEntity.whatsIShouldSave();
+        console.log('Dados de persistência criados e em mãos: ', dataToSave);
 
         const campaignSaved: Campaign = await this.campaignRepository.save(dataToSave.campaign);
+        console.log('Informações base da campanha persistido');
 
         if(!campaignSaved.id) throw new Error('Retorno de save campaign sem ID... erro!');
         
@@ -36,17 +39,20 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
         if (!campaignEntity.baseInformations.id) throw new Error('ID da entidade campanha não foi definido!');
 
         const response: SaveDTO = {campaign: campaignSaved};
+        console.log('Começo do DTO de retorno do useCase: ', response);
 
         if (dataToSave.filters) {
             const { activeFiltersKey, activeFiltersValues } = dataToSave.filters;
 
+            // Salva os filtros da campanha em tabelas associativas com CampaignId + Criar a clausula Where para a consulta do grupo destinatário na tabela de beneficiários
             const {filterResults, whereClause } = await this.filterService.processFiltersToSave(campaignEntity.baseInformations.id, activeFiltersKey, activeFiltersValues);
+            console.log('Filtros persistidos e clausula de busca do grupo destinatário criada:', filterResults, whereClause);
             
             Object.assign(response, filterResults);
 
             response.whereClause = whereClause;
 
-            console.log('Vamos analisar o final de tudo: ', response);
+            console.log('Vamos analisar o DTO de retorno do useCase após persistencia dos filtros e whereClause: ', response);
             
             // Buscar e contar destinatários com base nos filtros
             // try {
@@ -72,26 +78,32 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
         //     response.schedule = scheduleDB;
         // }
 
+        // Realiza a busca do grupo destinatário na tabela de beneficiário.
         if (response.whereClause) {
             const recipientGroupDB: Partial<RecipientGroup>[] | string = await this.recipientGroupRepository.getRecipientsByFilters(response.whereClause);
+            console.log('Busca por Grupo destinatário na tabela de beneficiário realizada com sucesso: ', recipientGroupDB);
 
+            //  Caso não tenha grupo destinatário para os filtros criados retornamos uma string informando a situação.
             if (typeof recipientGroupDB === 'string') {
                 console.log('Não tem nada e vai retornar sucesso porém sem grupo destinatário');
                 
                 response.notRecipientGroup = recipientGroupDB;
             } else {
+                console.log('Tem grupo destinatário');
+                
                 response.recipientGroup = recipientGroupDB;
             }
         }
 
+        // Salvamos o grupo destinatário da campanha em questão passando os dados e o id da campanha para associação
         if(response.recipientGroup && Array.isArray(response.recipientGroup) && response.recipientGroup.length > 0) {
-            console.log('Só pra confirmar rsrs');
-            
             const recipientGroupSaved: RecipientGroup[] = await this.recipientGroupRepository.saveRecipientsGroup(response.recipientGroup, campaignEntity.baseInformations.id);
-
+            console.log('Grupo destinatário persistido com sucesso');
+            
             response.recipientGroupSaved = recipientGroupSaved;
         }
 
+        console.log('Resposta do DTO do useCase finalizado: ', response);
         return response.campaign;
     }
 }

@@ -15,11 +15,17 @@ import ShortFullEmailCampaign from "../../domain/entities/interfaces/email-campa
 import ICampaignRepository from "../../domain/contracts/repositories/ICampaignRepository";
 import StatisticsWhatsCampaignModel from "../database/models/statistics-whats-campaign.model";
 import CampaignMessageStatusesModel from "../database/models/campaign-message-statuses.model";
+import BirthModel from "../database/models/associations/campaign-birth.models";
 
 class CampaignRepository implements ICampaignRepository {
     async save(campaign: Campaign): Promise<Campaign>{
         console.log('Recebido da controller: ', campaign);
+        if(campaign.gender === '') {
+            campaign.gender = null;
+        }
 
+        console.log('Após manipulação: ', campaign);
+        
         const createDBResult = await CampaignModel.create({
             campaignName: campaign.campaignName,
             subject: campaign.subject,
@@ -34,6 +40,12 @@ class CampaignRepository implements ICampaignRepository {
             filterByPlan: campaign.filterByPlan,
             filterByUf: campaign.filterByUf,
             filterByValidity: campaign.filterByValidity,
+            filterByBirth: campaign.filterByBirth,
+            filterByDay: campaign.filterByDay,
+            filterByMonth: campaign.filterByMonth,
+            filterByYear: campaign.filterByYear,
+            filterByGender: campaign.filterByGender,
+            gender: campaign.gender,
         });
 
         console.log(createDBResult);
@@ -75,7 +87,8 @@ class CampaignRepository implements ICampaignRepository {
                     {model: ContractStatusModel},
                     {model: ValidityModel},
                     {model: UfModel},
-                    {model: StatisticsWhatsCampaignModel}
+                    {model: StatisticsWhatsCampaignModel},
+                    {model: BirthModel}
                 ]
             });
     
@@ -102,6 +115,12 @@ class CampaignRepository implements ICampaignRepository {
                     filterByPlan: pureObject.filterByPlan,
                     filterByUf: pureObject.filterByUf,
                     filterByValidity: pureObject.filterByValidity,
+                    filterByBirth: pureObject.filterByBirth,
+                    filterByDay: pureObject.filterByDay,
+                    filterByMonth: pureObject.filterByMonth,
+                    filterByYear: pureObject.filterByYear,
+                    filterByGender: pureObject.filterByGender,
+                    gender: pureObject.gender,
                     createdAt: pureObject.createdAt,
                     updatedAt: pureObject.updatedAt ?? null,
                 },
@@ -115,6 +134,7 @@ class CampaignRepository implements ICampaignRepository {
                 validity: pureObject.ValidityModel ?? null,
                 ufs: pureObject.UfModels ?? null,
                 whatsappStatisticsModel: pureObject.StatisticsWhatsCampaignModel ?? null,
+                birth: pureObject.BirthModel ?? null
             }
 
             console.log('Resultado final do objeto puro: ', pureObject);

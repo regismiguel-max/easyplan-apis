@@ -22,6 +22,9 @@ import CampaignPlansModel from "../database/models/associations/campaign-plans.m
 import CampaignOperatorsModel from "../database/models/associations/campaign-operators.models";
 import CampaignContractStatusModel from "../database/models/associations/campaign-contract-status.models";
 import CampaignModalityModel from "../database/models/associations/campaign-modality.models";
+import BirthModel from "../database/models/associations/campaign-birth.models";
+import Birth from "../../domain/entities/interfaces/filters/birth.interface";
+import BirthDTOPersistence from "../../domain/entities/interfaces/birth-dto-persistence.interface";
 // import ContractStatusModel from "./models/contract-status.models";
 // import ModalityModel from "./models/modality.models";
 // import OperatorsModel from "./models/operators.models";
@@ -43,6 +46,22 @@ export default class FiltersRepository implements IFiltersRepository {
         console.log('Retorno campaign - Operator após manipulação: ', campaignOperators);
 
         return campaignOperators;
+    }
+    async saveCampaignBirth(campaignId: number, birthData: BirthDTOPersistence): Promise<Birth> {   
+        console.log('Vamos vê a data: ', birthData);
+        
+        const birthDB = await BirthModel.create({
+            campaignId,
+            day: birthData.day,
+            month: birthData.month,
+            year: birthData.year
+        });
+
+        const birth = birthDB.get({plain: true}) as Birth;
+
+        console.log('Retorno campaign - Birth após manipulação: ', birth);
+
+        return birth;
     }
 
     async saveCampaignPlans(campaignId: number, planIds: number[]): Promise<PlanEmailAssociation[]> {
@@ -145,6 +164,7 @@ export default class FiltersRepository implements IFiltersRepository {
             { name: 'Ufs', model: CampaignUfsModel },
             { name: 'AgeRange', model: AgeRangeModel },
             { name: 'Validity', model: ValidityModel },
+            { name: 'Birth', model: BirthModel },
         ];
         
         try {
@@ -244,6 +264,20 @@ export default class FiltersRepository implements IFiltersRepository {
         if(deleteCampaignAgeRangeResult <= 0) throw new Error('Erro - Nenhuma linha foi deletada do banco de dados');
         
         return `Deleção realizada com sucesso. ${deleteCampaignAgeRangeResult} foram deletadas.`
+    }
+
+    async deleteCampaignBirth(campaignId: number): Promise<string | void> {
+        if(!campaignId) throw new Error('Não foi passado nenhum id para direcionar a deleção');
+
+        const exist = await BirthModel.count({ where: { campaignId } })
+            
+        if(exist === 0) return 'Não existe esse dado no DB - pode salvar';
+
+        const deleteCampaignBirthResult = await BirthModel.destroy({where: {campaignId}});
+
+        if(deleteCampaignBirthResult <= 0) throw new Error('Erro - Nenhuma linha foi deletada do banco de dados');
+        
+        return `Deleção realizada com sucesso. ${deleteCampaignBirthResult} foram deletadas.`
     }
 
     async deleteCampaignValidity(campaignId: number): Promise<string | void> {
@@ -466,6 +500,16 @@ export default class FiltersRepository implements IFiltersRepository {
         const pureObject = validityDB.get({plain: true});
 
         console.log('Resultado final do repository: ', pureObject);
+
+        return pureObject;
+    }
+
+    async getBirthById(id: number): Promise<Birth>{
+        const birthDB = await BirthModel.findByPk(id);
+
+        if (!birthDB) throw new Error('Deu erro ao buscar a Vigência');
+
+        const pureObject = birthDB?.get({plain: true}) as Birth;
 
         return pureObject;
     }
