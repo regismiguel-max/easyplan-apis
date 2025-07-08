@@ -44,7 +44,7 @@ export class ContratoHelper {
             angariador: contrato?.angariador?.nome ?? null,
             nome_responsavel_financeiro: contrato?.nomeResponsavel ?? null,
             cpf_responsavel: contrato?.cpfResponsavel ?? null,
-            forma_de_ajuste: contrato?.formaAjuste ?? null,
+            forma_de_ajuste: contrato?.formaAjuste?.nome ?? null,
             ajuste: contrato?.ajuste ?? null,
             origem_de_venda: contrato?.origemVenda?.nome ?? null,
         };
