@@ -15,8 +15,8 @@ export const startServer = async () => {
         logger.info("✅ Models inicializados com sucesso.");
 
         // agendarExecucaoPrincipal();
-        // await agendarExecucaoCompleta(); // agendamento com BullMQ
-        // logger.info("📅 Job de sincronização agendado com BullMQ.")
+        await agendarExecucaoCompleta(); // agendamento com BullMQ
+        logger.info("📅 Job de sincronização agendado com BullMQ.")
 
         app.listen(PORT, () => {
             logger.info(`🚀 Servidor rodando na porta ${PORT}`);
