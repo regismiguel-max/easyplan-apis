@@ -8,7 +8,7 @@ export default class RecipientGroupRepository {
     async getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string> {
         const recipientGroupDB = await ClientModel.findAll({
             where: filters,
-            attributes: ['ddd_celular', 'celular', 'email_principal']
+            attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         });
 
         if(recipientGroupDB.length <= 0) return 'Não existe cliente(s) que atendam a esse conjunto de filtros';
@@ -30,7 +30,12 @@ export default class RecipientGroupRepository {
             campaignId,
             ddd_celular: rg.ddd_celular,
             celular: rg.celular,
-            email_principal: rg.email_principal
+            email_principal: rg.email_principal,
+            operadora: rg.operadora,
+            plano: rg.plano,
+            status_do_beneficiario: rg.status_do_beneficiario,
+            uf: rg.uf,
+            sexo: rg.sexo,
         }));
 
         console.log('Dado formatado para persistir: ', data);
