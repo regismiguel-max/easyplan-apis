@@ -73,7 +73,19 @@ exports.kualizProcurarPorCpfTitular = async (req, res) => {
                 if (ativos.length > 0) {
                     contratoSelecionado = ativos[0]; // Primeiro contrato ativo
                 } else {
-                    contratoSelecionado = contratosValidos[contratosValidos.length - 1]; // Último válido
+                    const suspensos = contratosValidos.filter(c => c.statusContrato.nome === 'Suspenso');
+                    if (suspensos.length > 0) {
+                        contratoSelecionado = suspensos[0]; // Primeiro contrato suspenso
+                    } else {
+                        // Filtra os contratos que não têm dataExclusao
+                        const semExclusao = contratosValidos.filter(c => !c.dataExclusao);
+
+                        if (semExclusao.length > 0) {
+                            contratoSelecionado = semExclusao[semExclusao.length - 1]; // Último contrato sem dataExclusao
+                        } else {
+                            contratoSelecionado = contratosValidos[contratosValidos.length - 1]; // Último contrato, mesmo com dataExclusao
+                        }
+                    }
                 }
 
                 res.send({
