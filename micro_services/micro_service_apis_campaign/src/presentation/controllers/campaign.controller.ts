@@ -20,6 +20,7 @@ import TemplateRepository from "../../infrastructure/repositories/template.repos
 //Get Templates
 import path from "path";
 import * as fs from 'fs';
+import { NotRecipient } from "../../domain/entities/interfaces/not-recipient.interface";
 
 
 class CampaignController {
@@ -56,7 +57,7 @@ class CampaignController {
                 return;
             }
 
-            const saved: Campaign | undefined = await this.saveCampaignUseCase?.execute(dto);
+            const saved: Campaign | NotRecipient | undefined = await this.saveCampaignUseCase?.execute(dto);
             console.log('PRG: ', saved);
             
 
@@ -67,6 +68,16 @@ class CampaignController {
                     message: 'Erro ao salvar campanha',
                     data: saved
                 });
+                return;
+            }
+
+            if(typeof saved === 'object' && 'message' in saved) {
+                res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: saved.message,
+                });
+    
                 return;
             }
 
@@ -112,7 +123,7 @@ class CampaignController {
                 return;
             }
 
-            const result: EditResponse | undefined = await this.editCampaign?.execute(dto);
+            const result: EditResponse | undefined | NotRecipient = await this.editCampaign?.execute(dto);
 
             if (!result) {
                 res.status(500).json({ 
@@ -121,6 +132,16 @@ class CampaignController {
                 });
                 return
             };
+
+            if(typeof result === 'object' && 'message' in result) {
+                res.status(404).json({
+                    status: 404,
+                    success: false,
+                    message: result.message,
+                });
+    
+                return;
+            }
             
             res.status(201).json({ 
                 success: true,

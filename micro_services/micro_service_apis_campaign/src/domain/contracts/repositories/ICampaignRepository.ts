@@ -12,14 +12,14 @@ export default interface ICampaignRepository {
     findById(id: number): Promise<ShortFullEmailCampaign>;
     
     updateEmailTemplateId(emailTemplateId: number, emailCampaign: CampaignEntity): Promise<string>;
-
+    
     update(payload: Campaign): Promise<string>;
-
+    
+    delete(id: number): Promise<string>;
     // getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string>;
     // saveRecipientsGroup(recipientsGroup: Partial<RecipientGroup>[], emailCampaignId: number): Promise<RecipientGroup[]>;
     // deleteRecipientsGroup(emailCampaignId: number): Promise<string>;
     // getRecipientGroupById(emailCampaignId: number): Promise<RecipientGroupToSend>;
     // updateStatus(id: number, status: CampaignStatus): Promise<[number]>;
 
-    // delete(id: number): Promise<string>;
 }

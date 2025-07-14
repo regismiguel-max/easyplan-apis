@@ -25,4 +25,16 @@ export default interface FiltersProcessed {
 export interface FilterProcessResponse {
     filterResults: FiltersProcessed;
     whereClause: WhereOptions;
+    filterSteps: FilterStep[];
+}
+
+export type FilterStep = {
+    key: string;
+    label: string;
+    where: WhereOptions;
+};
+
+export type FilterProcessBuildVerificationResponse = {
+    whereClause: WhereOptions;
+    filterSteps: FilterStep[];
 }

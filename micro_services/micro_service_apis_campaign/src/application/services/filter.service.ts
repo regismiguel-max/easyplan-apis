@@ -2,7 +2,8 @@ import { Op, WhereOptions } from "sequelize";
 import IFilterService from "../../domain/contracts/service/IFilterService";
 import FilterStrategyFactory from "../strategies/filter-strategy.factory";
 import { ActiveFilterKey, ActiveFiltersValues } from "../../domain/entities/interfaces/filters-to-save.interface";
-import FiltersProcessed, { FilterProcessResponse } from "../../domain/entities/interfaces/email-campaign/output/process-filter.interface";
+import FiltersProcessed, { FilterProcessBuildVerificationResponse, FilterProcessResponse, FilterStep } from "../../domain/entities/interfaces/email-campaign/output/process-filter.interface";
+import BirthDTOPersistence from "../../domain/entities/interfaces/birth-dto-persistence.interface";
 // import IFilterService from "../../domain/contracts/services/IFilterService";
 // import { WhereClause } from "../../domain/valueObjects/WhereClause";
 // import { FilterStrategyFactory } from "../strategies/FilterStrategyFactory";
@@ -13,12 +14,83 @@ export class FilterService implements IFilterService {
         private filterStrategyFactory: FilterStrategyFactory
     ) {}
 
+    async processToBuildVerificationIfHasBeneficiary(activeFilters: ActiveFilterKey[], activeFiltersValues: ActiveFiltersValues): Promise<FilterProcessBuildVerificationResponse>{
+        let whereClauses: any[] = [];
+        const filterSteps: FilterStep[] = [];
+
+        activeFilters = activeFilters.filter(key => key !== 'gender');
+        
+        for (const filterType of activeFilters) {
+            const ids = activeFiltersValues[filterType];
+
+            const strategy = this.filterStrategyFactory.createFilterStrategy(filterType);
+
+            if (ids) {
+                if(Array.isArray(ids) && ids.length > 0) {
+                    if (filterType === 'validity' || filterType === 'ageRange') {
+                        console.log('AgeRange entrou e vai construir a clausula');
+                        
+                        const whereClause = await strategy.pureBuildWhereClause(ids);
+                        console.log('Vamos entender Faixa Étaria: ', whereClause);
+                        
+                        whereClauses.push(whereClause);
+                        
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
+                    } else {
+                        console.log('Operator entrou onde devia e vai começar a construir a clausula');
+                        
+                        const whereClause = await strategy.pureBuildWhereClause(ids);
+                        console.log('Vamos entender Operadora final: ', whereClause);
+                        
+                        whereClauses.push(whereClause);
+                        
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
+                    }
+                } else {
+                    // Caso de uso para o BirthData
+                    
+                    const whereClause = await strategy.pureBuildWhereClause(ids as BirthDTOPersistence);
+
+                    whereClauses.push(whereClause);
+
+                    filterSteps.push({
+                        key: filterType,
+                        label: strategy.getLabel(),
+                        where: whereClause
+                    });
+                }
+            }
+        }
+        // Combinar todas as cláusulas where com AND
+        const combinedWhereClause: WhereOptions = whereClauses.length > 0 ? { [Op.and]: whereClauses } : {};
+
+        console.log('Vamos vê a clausula final', combinedWhereClause);
+        
+        
+        const response: FilterProcessBuildVerificationResponse = {
+            whereClause: combinedWhereClause,
+            filterSteps
+        };
+
+        return  response;
+
+    }
+
     async processFiltersToSave(campaignId: number, activeFilters: ActiveFilterKey[], activeFiltersValues: ActiveFiltersValues): Promise<FilterProcessResponse> {
         // Dados que o service deve retornar;
         // FiltersResults trata-se dos resultados da persistência dos filtros;
         // WhereClauses trata-se da clasula Where da query que será utilizada para gerar o grupo destinatário;
         let filterResults: FiltersProcessed = {};
         let whereClauses: any[] = [];
+        const filterSteps: FilterStep[] = [];
 
         // Exclução dos valores do filtro de gênero pois o mesmo ta sendo salvo direto na campanha sem precisar de tabela associativa;
         activeFilters = activeFilters.filter(key => key !== 'gender');
@@ -50,11 +122,23 @@ export class FilterService implements IFilterService {
                         
                         const whereClause = await strategy.buildWhereClause(id);
     
-                        whereClauses.push(whereClause); 
+                        whereClauses.push(whereClause);
+
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
                     } else {
                         const whereClause = await strategy.buildWhereClause(ids);
                         
                         whereClauses.push(whereClause);
+
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
                     }
                 } else {
                     // Caso de uso para o BirthData
@@ -66,7 +150,13 @@ export class FilterService implements IFilterService {
                     
                     const whereClause = await strategy.buildWhereClause(id);
 
-                    whereClauses.push(whereClause); 
+                    whereClauses.push(whereClause);
+
+                    filterSteps.push({
+                        key: filterType,
+                        label: strategy.getLabel(),
+                        where: whereClause
+                    });
                 }
             }
         }
@@ -77,7 +167,8 @@ export class FilterService implements IFilterService {
         
         const response: FilterProcessResponse = {
             filterResults,
-            whereClause: combinedWhereClause
+            whereClause: combinedWhereClause,
+            filterSteps
         };
 
         return  response;
@@ -89,6 +180,7 @@ export class FilterService implements IFilterService {
         // WhereClauses trata-se da clasula Where da query que será utilizada para gerar o grupo destinatário;
         let filterResults: FiltersProcessed = {};
         let whereClauses: any[] = [];
+        const filterSteps: FilterStep[] = [];
 
         // Exclução dos valores do filtro de gênero pois o mesmo ta sendo salvo direto na campanha sem precisar de tabela associativa;
         activeFilters = activeFilters.filter(key => key !== 'gender');
@@ -122,11 +214,21 @@ export class FilterService implements IFilterService {
                         
                         const whereClause = await strategy.buildWhereClause(id);
                         
-                        whereClauses.push(whereClause); 
+                        whereClauses.push(whereClause);
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
                     } else {
                         const whereClause = await strategy.buildWhereClause(ids);
                         
                         whereClauses.push(whereClause);
+                        filterSteps.push({
+                            key: filterType,
+                            label: strategy.getLabel(),
+                            where: whereClause
+                        });
                     }
                 } else {
                     const deleteFilter = await strategy.delete(campaignId);
@@ -140,7 +242,12 @@ export class FilterService implements IFilterService {
                     
                     const whereClause = await strategy.buildWhereClause(id);
 
-                    whereClauses.push(whereClause); 
+                    whereClauses.push(whereClause);
+                    filterSteps.push({
+                        key: filterType,
+                        label: strategy.getLabel(),
+                        where: whereClause
+                    });
                 }
             }
         }
@@ -151,7 +258,8 @@ export class FilterService implements IFilterService {
         
         const response: FilterProcessResponse = {
             filterResults,
-            whereClause: combinedWhereClause
+            whereClause: combinedWhereClause,
+            filterSteps
         };
 
         return  response;

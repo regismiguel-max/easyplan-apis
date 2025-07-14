@@ -1,9 +1,12 @@
+import { WhereOptions } from "sequelize";
 import ICampaignRepository from "../../domain/contracts/repositories/ICampaignRepository";
+import IFiltersRepository from "../../domain/contracts/repositories/IFiltersRepository";
 import IFilterService from "../../domain/contracts/service/IFilterService";
 import IEditCampaingUseCase from "../../domain/contracts/usecase/IEditEmailCampaignUseCase";
 import CampaignEntity from "../../domain/entities/Campaign";
 import DataToSave from "../../domain/entities/interfaces/data-to-save.interface";
 import EditResponse from "../../domain/entities/interfaces/email-campaign/output/edit-response.interface";
+import { NotRecipient } from "../../domain/entities/interfaces/not-recipient.interface";
 import RecipientGroup from "../../domain/entities/interfaces/recipient-group.interface";
 import CampaignFactory from "../../domain/factories/campaign-entity-factory";
 import RecipientGroupRepository from "../../infrastructure/repositories/recipient-group.repository";
@@ -14,10 +17,11 @@ export default class EditCampaignUseCase implements IEditCampaingUseCase{
     constructor(
         private campaignRepository: ICampaignRepository,
         private recipientGroupRepository: RecipientGroupRepository,
+        private filtersRepository: IFiltersRepository,
         private filterService: IFilterService
     ){}
 
-    public async execute(dto: CRUDCampaignDTO): Promise<EditResponse> {
+    public async execute(dto: CRUDCampaignDTO): Promise<EditResponse | NotRecipient> {
         console.log('Inicio - apenas DTO: ', dto);
         
         const campaignEntity: CampaignEntity = await CampaignFactory.createFromPersistence(dto);
@@ -26,6 +30,40 @@ export default class EditCampaignUseCase implements IEditCampaingUseCase{
         if(!campaignEntity.canBeEdited()) throw new Error('Campanhas disparadas não podem ser salvas');
 
         const dataToUpdate: DataToSave = await campaignEntity.whatsIShouldSave();
+
+        if(dataToUpdate.filters) {
+            console.log('Entrou AAAAAAAAA');
+            
+            let responses: {
+                whereClause?: WhereOptions;
+                filterStep?: any;
+            } = {};
+                    
+            const { activeFiltersKey, activeFiltersValues } = dataToUpdate.filters;
+        
+            // Salva os filtros da campanha em tabelas associativas com CampaignId + Criar a clausula Where para a consulta do grupo destinatário na tabela de beneficiários
+            const {whereClause, filterSteps } = await this.filterService.processToBuildVerificationIfHasBeneficiary(activeFiltersKey, activeFiltersValues);
+            console.log('Veja após as manipulações: ', whereClause, filterSteps);
+                    
+            responses.whereClause = whereClause;
+            responses.filterStep = filterSteps;
+        
+            const diagnostics = await this.recipientGroupRepository.getFilterDiagnostics(filterSteps);
+        
+            console.log('Diagnóstico de filtros aplicado:', diagnostics);
+            diagnostics.report.forEach(msg => console.log(msg));
+        
+            let filterNoHasRecipient: string[] | string = diagnostics.report.filter(item => item.includes('0 r'));
+        
+            // filterNoHasRecipient = filterNoHasRecipient[0].split('❌')[1]?.split(':')[0]?.trim();
+            // console.log('Vê se deu certo a manipulação do retorno');
+                    
+            if(filterNoHasRecipient.length > 0) {
+                return {
+                    message: filterNoHasRecipient[0]
+                };
+            }
+        }
 
         let campaignUpdated: string = await this.campaignRepository.update(dataToUpdate.campaign);
 
@@ -43,7 +81,8 @@ export default class EditCampaignUseCase implements IEditCampaingUseCase{
 
             response.whereClause = whereClause;
 
-            console.log('Vamos analisar o final de tudo: ', response);
+            // console.log('Vamos analisar o final de tudo: ', response);
+            console.log('Vamos analisar o DTO de retorno do useCase após persistencia dos filtros e whereClause: ', response);
             
             // Buscar e contar destinatários com base nos filtros
             // try {
@@ -81,7 +120,7 @@ export default class EditCampaignUseCase implements IEditCampaingUseCase{
             }
         }
 
-         // caso os novos filtros não retornem grupo destinatário
+        // caso os novos filtros não retornem grupo destinatário
         if(response.notRecipientGroup) {
             console.log('Vai deletar o que tiver de grupo destinatário');
             

@@ -3,6 +3,7 @@ export default interface Template {
     templateName: string;
     templateContent: string;
     typeTemplate: string;
+    imageId: string | null;
     createdAt: Date;
     updatedAt: Date;
 }

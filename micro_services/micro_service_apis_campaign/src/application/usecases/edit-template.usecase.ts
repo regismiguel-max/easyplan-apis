@@ -71,6 +71,7 @@ export default class EditTemplateUseCase implements IEditTemplateUseCase {
             templateName: updatedTemplate.templateName,
             templateContent: updatedTemplate.templateContent,
             typeTemplate: updatedTemplate.typeTemplate,
+            imageId: updatedTemplate.imageId,
             createdAt: updatedTemplate.createdAt,
             updatedAt: updatedTemplate.updatedAt
         }

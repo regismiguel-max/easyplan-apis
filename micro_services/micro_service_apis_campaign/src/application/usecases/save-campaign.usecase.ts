@@ -9,25 +9,60 @@ import RecipientGroup from "../../domain/entities/interfaces/recipient-group.int
 import CampaignFactory from "../../domain/factories/campaign-entity-factory";
 import RecipientGroupRepository from "../../infrastructure/repositories/recipient-group.repository";
 import CRUDCampaignDTO from "../../presentation/dtos/crud-campaign.dto";
+import IFiltersRepository from "../../domain/contracts/repositories/IFiltersRepository";
+import { NotRecipient } from "../../domain/entities/interfaces/not-recipient.interface";
+import { WhereOptions } from "sequelize";
 
 export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
 
     constructor(
         private campaignRepository: ICampaignRepository,
         private recipientGroupRepository: RecipientGroupRepository,
+        private filtersRepository: IFiltersRepository,
         private filterService: IFilterService
     ){}
 
-    public async execute(dto: CRUDCampaignDTO): Promise<Campaign> {
+    public async execute(dto: CRUDCampaignDTO): Promise<Campaign | NotRecipient> {
         console.log('Inicio - apenas DTO: ', dto);
         
         const campaignEntity: CampaignEntity = await CampaignFactory.createNew(dto);
         console.log('Entidade criada');
 
         if (!campaignEntity.validateCreation()) throw new Error('Nome, assunto, status e e-mail do remetente são obrigatórios para criar campanha');
-
+        
         const dataToSave: DataToSave = await campaignEntity.whatsIShouldSave();
         console.log('Dados de persistência criados e em mãos: ', dataToSave);
+        
+        if(dataToSave.filters) {
+            let responses: {
+                whereClause?: WhereOptions;
+                filterStep?: any;
+            } = {};
+            
+            const { activeFiltersKey, activeFiltersValues } = dataToSave.filters;
+
+            // Salva os filtros da campanha em tabelas associativas com CampaignId + Criar a clausula Where para a consulta do grupo destinatário na tabela de beneficiários
+            const {whereClause, filterSteps } = await this.filterService.processToBuildVerificationIfHasBeneficiary(activeFiltersKey, activeFiltersValues);
+            console.log('Veja após as manipulações: ', whereClause, filterSteps);
+            
+            responses.filterStep = filterSteps;
+
+            const diagnostics = await this.recipientGroupRepository.getFilterDiagnostics(filterSteps);
+
+            console.log('Diagnóstico de filtros aplicado:', diagnostics);
+            diagnostics.report.forEach(msg => console.log(msg));
+
+            let filterNoHasRecipient: string[] | string = diagnostics.report.filter(item => item.includes('0 r'));
+
+            // filterNoHasRecipient = filterNoHasRecipient[0].split('❌')[1]?.split(':')[0]?.trim();
+            // console.log('Vê se deu certo a manipulação do retorno');
+            
+            if(filterNoHasRecipient.length > 0) {
+                return {
+                    message: filterNoHasRecipient[0]
+                };
+            }
+        }
 
         const campaignSaved: Campaign = await this.campaignRepository.save(dataToSave.campaign);
         console.log('Informações base da campanha persistido');
@@ -45,11 +80,10 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
             const { activeFiltersKey, activeFiltersValues } = dataToSave.filters;
 
             // Salva os filtros da campanha em tabelas associativas com CampaignId + Criar a clausula Where para a consulta do grupo destinatário na tabela de beneficiários
-            const {filterResults, whereClause } = await this.filterService.processFiltersToSave(campaignEntity.baseInformations.id, activeFiltersKey, activeFiltersValues);
-            console.log('Filtros persistidos e clausula de busca do grupo destinatário criada:', filterResults, whereClause);
+            const {filterResults, whereClause, filterSteps } = await this.filterService.processFiltersToSave(campaignEntity.baseInformations.id, activeFiltersKey, activeFiltersValues);
+            console.log('Filtros persistidos e clausula de busca do grupo destinatário criada:', filterResults, whereClause, filterSteps);
             
             Object.assign(response, filterResults);
-
             response.whereClause = whereClause;
 
             console.log('Vamos analisar o DTO de retorno do useCase após persistencia dos filtros e whereClause: ', response);

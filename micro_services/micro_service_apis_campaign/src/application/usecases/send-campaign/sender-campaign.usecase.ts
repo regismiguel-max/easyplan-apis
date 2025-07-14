@@ -172,6 +172,8 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
               chunkIndex: i + 1,
               totalChunks,
             } as SendEmailCampaignDTO;
+
+            
           } else if(baseData.typeCampaign === 'whatsapp' && plainText) {
             sendData = {
               baseData,
@@ -182,6 +184,10 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
               chunkIndex: i + 1,
               totalChunks,
             } as SendWhatsappCampaignDTO;
+
+            if(templateDB.imageId){
+              sendData.imageId = Number(templateDB.imageId);
+            }
           }  else {
             throw new Error('❌ Tipo de campanha inválido ou template WhatsApp ausente!');
           }
