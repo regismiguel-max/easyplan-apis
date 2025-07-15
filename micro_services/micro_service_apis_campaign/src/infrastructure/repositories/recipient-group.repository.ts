@@ -103,7 +103,7 @@ export default class RecipientGroupRepository {
         console.log('Entrou no diagnostic');
         
         let sqlParts: string[] = [];
-        let previousStep = '`cliente_digital_beneficiarios`';
+        let previousStep = '`cliente_digital_beneficiarios_teste`';
 
         for (let i = 0; i < filterSteps.length; i++) {
             const step = filterSteps[i];
