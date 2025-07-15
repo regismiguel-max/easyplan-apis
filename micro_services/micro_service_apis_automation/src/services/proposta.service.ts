@@ -56,7 +56,7 @@ export class PropostaService {
                 await new Promise(resolve => setTimeout(resolve, 200));
                 return [];
             },
-            4
+            2
         );
 
         const propostasTotais = propostasArrays.flat();
