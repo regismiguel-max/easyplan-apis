@@ -19,6 +19,10 @@ const CampaignTemplateModel = connection_db.define(
             type: DataTypes.STRING,
             allowNull: false,
         },
+        imageId: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     },
     {
         tableName: 'cliente_campanha_campaign_templates',

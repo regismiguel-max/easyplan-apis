@@ -25,4 +25,21 @@ export class OperatorFilterStrategy implements IFilterStrategy {
 
         return { operadora: { [Op.in]: codigoProdutos } };
     }
+
+    async pureBuildWhereClause(ids: number[]): Promise<WhereOptions> {
+        const codigoProdutos = [];
+        
+        for (const id of ids) {
+            const operator = await this.filtersRepository.getOperatorById(id);
+            codigoProdutos.push(operator.nome_operadora);
+        }
+
+        console.log('Vamos entender operadora: ', codigoProdutos);
+        
+        return { operadora: { [Op.in]: codigoProdutos } };
+    }
+
+    getLabel(): string {
+        return 'Operadora';
+    }
 }

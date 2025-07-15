@@ -24,4 +24,8 @@ export class ModalityFilterStrategy implements IFilterStrategy {
         
         return { modalityDescricao: { [Op.in]: modalityDescricao } };
     }
+
+    getLabel(): string {
+        return 'Modalidade';
+    }
 }

@@ -7,6 +7,7 @@ import Operator from "./filters/operator.interface";
 import Plan from "./filters/plan.interface";
 import Uf from "./filters/uf.interface";
 import Validity from "./filters/validity.interface";
+import { FilterStep } from "./email-campaign/output/process-filter.interface";
 
 export default interface SaveDTO {
     campaign: Campaign;
@@ -20,4 +21,5 @@ export default interface SaveDTO {
     recipientGroup?: Partial<RecipientGroup>[] | null;
     notRecipientGroup?: string | null;
     recipientGroupSaved?: RecipientGroup[] | null;
+    filterStep?: FilterStep[];
 }

@@ -9,6 +9,7 @@ import Campaign from "../campaign.interface";
 import Template from "../template.interface";
 import StatisticsEmail from "./statistics-email.interface";
 import StaticticsWhatsapp from "../whats-campaign/statistics-whatsapp.interface";
+import Birth from "../filters/birth.interface";
 
 export default interface ShortFullEmailCampaign {
     campaign: Campaign,
@@ -21,7 +22,8 @@ export default interface ShortFullEmailCampaign {
     contractStatuses?: ContractStatus[] | null,
     validity?: Validity | null,
     ufs?: Uf[] | null,
-    whatsappStatisticsModel: StaticticsWhatsapp
+    whatsappStatisticsModel: StaticticsWhatsapp,
+    birth?: Birth
 }
 
 

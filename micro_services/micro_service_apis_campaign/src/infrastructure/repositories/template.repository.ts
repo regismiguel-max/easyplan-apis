@@ -9,7 +9,8 @@ export default class TemplateRepository implements ITemplateRepository {
         const assignTemplateDBResult = await CampaignTemplateModel.create({
             templateName: template.templateName,
             templateContent: template.templateContent,
-            typeTemplate: template.typeTemplate
+            typeTemplate: template.typeTemplate,
+            imageId: template.imageId ?? null
         });
 
         // transformar em um objeto puro

@@ -18,6 +18,17 @@ export default class WhatsappCampaignSender implements ICampaignSenderStrategy {
 
     public async senderCampaing(data: SendWhatsappCampaignDTO) {
         const messagesKauliz = data.recipientGroup.map((rg) => {
+            if(data.imageId){
+                return {
+                    number: rg,
+                    country: "+55",
+                    text: data.template,
+                    campaignName: data.baseData.campaignName,
+                    extFlag: 1,
+                    hidden: false,
+                    fileId: data.imageId
+                }
+            }
             return {
                 number: rg,
                 country: "+55",
@@ -34,19 +45,37 @@ export default class WhatsappCampaignSender implements ICampaignSenderStrategy {
 
         for(const messageKauliz of messagesKauliz) {
             try {
-                const response = await axios.post(
-                    this.kaulizURL,
-                    {
-                        "queueId": 20,
-                        "apiKey": this.kaulizApiKey,
-                        "number": messageKauliz.number,
-                        "country": messageKauliz.country,
-                        "text": messageKauliz.text,
-                        "campaignName": messageKauliz.campaignName,
-                        "extFlag": messageKauliz.extFlag,
-                        "hidden": false,
-                    }
-                );
+                let response;
+                if(messageKauliz.fileId){
+                    response = await axios.post(
+                        this.kaulizURL,
+                        {
+                            "queueId": 20,
+                            "apiKey": this.kaulizApiKey,
+                            "number": messageKauliz.number,
+                            "country": messageKauliz.country,
+                            "text": messageKauliz.text,
+                            "campaignName": messageKauliz.campaignName,
+                            "extFlag": messageKauliz.extFlag,
+                            "hidden": false,
+                            "fileId": messageKauliz.fileId
+                        }
+                    );
+                } else {
+                    response = await axios.post(
+                        this.kaulizURL,
+                        {
+                            "queueId": 20,
+                            "apiKey": this.kaulizApiKey,
+                            "number": messageKauliz.number,
+                            "country": messageKauliz.country,
+                            "text": messageKauliz.text,
+                            "campaignName": messageKauliz.campaignName,
+                            "extFlag": messageKauliz.extFlag,
+                            "hidden": false,
+                        }
+                    );
+                }
     
                 // console.log('Resposta do KAULIZ: ', response);
                 console.log('Resposta do KAULIZ: ', response.data);

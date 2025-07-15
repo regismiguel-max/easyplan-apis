@@ -1,5 +1,6 @@
 import { ActiveFiltersValues, ActiveFilterKey } from "../entities/interfaces/filters-to-save.interface";
 import { BooleanFiltersFlags, FilterValues } from "../entities/interfaces/campaign-create.interface";
+import BirthDTOPersistence from "../entities/interfaces/birth-dto-persistence.interface";
 
 export default class FiltersVO {
     public filterValues: FilterValues;
@@ -25,7 +26,7 @@ export default class FiltersVO {
         return activeFiltersArray;
     }
     public isActiveFilterKey(key: string): key is ActiveFilterKey {
-        return ['operator', 'plan', 'contractStatus', 'uf', 'ageRange', 'validity'].includes(key);
+        return ['operator', 'plan', 'contractStatus', 'uf', 'ageRange', 'birth', 'validity', 'gender'].includes(key);
     };
 
     public async getFilterValues() {
@@ -33,7 +34,7 @@ export default class FiltersVO {
 
         const activeFiltersValues: ActiveFiltersValues = {};
                
-        activeFiltersKey.forEach((filterActive) => {
+        activeFiltersKey.forEach(async (filterActive) => {
             switch (filterActive) {
                 case 'operator':
                     activeFiltersValues.operator = this.filterValues.operator;
@@ -54,8 +55,16 @@ export default class FiltersVO {
                     
                     activeFiltersValues.ageRange = [min, max];
                     break;
+                case 'birth':
+                    const birthDTOPersistence: BirthDTOPersistence = await this.extrairComponentesDaData(this.filterValues.birth);
+
+                    activeFiltersValues.birth = birthDTOPersistence;
+                    break;
                 case 'validity':
                     activeFiltersValues.validity = this.filterValues.validity;
+                    break;
+                case 'gender':
+                    activeFiltersValues.gender = this.filterValues.gender;
                     break;
                 // case 'modality':
                 //     activeFilterValues.modality = this.props.modality;
@@ -76,5 +85,25 @@ export default class FiltersVO {
         return Object.entries(this.booleanFiltersFlags).some(([key, value]) => {
             return key.startsWith('filterBy') && value === true;
         });
+    }
+
+    // Funções auxiliares (coloque-as em um utils ou diretamente na classe se preferir)
+    private async extrairComponentesDaData(dataArray: (number | string | null)[]): Promise<BirthDTOPersistence> {
+        let day: number | null = null;
+        let month: string | null = null;
+        let year: number | null = null;
+
+        for (const item of dataArray) {
+            if (typeof item === 'number') {
+                if (String(item).length === 4) {
+                    year = item;
+                } else if (String(item).length <= 2) {
+                    day = item;
+                }
+            } else if (typeof item === 'string') {
+                month = item;
+            }
+        }
+        return { day, month, year };
     }
 }

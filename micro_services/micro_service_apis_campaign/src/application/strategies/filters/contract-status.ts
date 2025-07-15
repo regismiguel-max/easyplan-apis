@@ -25,4 +25,19 @@ export class ContractStatusFilterStrategy implements IFilterStrategy {
         
         return { status_do_beneficiario: { [Op.in]: status } };
     }
+
+    async pureBuildWhereClause(contractStatusesId: number[]): Promise<WhereOptions> {
+        const status = [];
+        
+        for (const id of contractStatusesId) {
+            const contractStatus = await this.filtersRepository.getContractStatusById(id);
+            status.push(contractStatus.status);
+        }
+        
+        return { status_do_beneficiario: { [Op.in]: status } };
+    }
+
+    getLabel(): string {
+        return 'Status do Contrato';
+    }
 }

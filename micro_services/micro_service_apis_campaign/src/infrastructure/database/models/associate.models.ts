@@ -19,6 +19,7 @@ import CampaignUfsModel from './associations/campaign-ufs.models';
 import StatisticsWhatsCampaignModel from './statistics-whats-campaign.model';
 import CampaignMessageStatusesModel from './campaign-message-statuses.model';
 import FailedEmailModel from './failed-emails.model';
+import BirthModel from './associations/campaign-birth.models';
 
 export function associateModels() {
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + TEMPLATE ************************/
@@ -46,6 +47,10 @@ export function associateModels() {
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + AGE_RANGE ************************/
   AgeRangeModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
   CampaignModel.hasOne(AgeRangeModel, { foreignKey: 'campaignId' });
+
+  //************************ RELACIONAMENTO CAMPAIGN + BIRTH ************************/
+  BirthModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
+  CampaignModel.hasOne(BirthModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + RECIPIENT_GROUP ************************/
   RecipientGroupModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
