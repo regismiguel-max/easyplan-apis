@@ -1,4 +1,5 @@
 import axios from "axios";
+import sharp from "sharp";
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -47,13 +48,21 @@ export default class KaulizHelper {
         // let statusSent: number = 3;
         imageBase64 = imageBase64.split(',')[1];
 
+        const buffer = Buffer.from(imageBase64, "base64");
+
+        const metadata = await sharp(buffer).metadata();
+
+        if (!metadata.width || !metadata.height) {
+            throw new Error("Não foi possível obter as dimensões da imagem.");
+        }
+
         const payload = {
             fileName: `fotoCampanha${templateName}.jpg`,
             mimeType: "image/jpg",
             data: imageBase64,
             thumbnail: imageBase64,
-            width: 1000, //-> Dúvida qual tamanho aconselhado
-            height: 1000,
+            width: metadata.width, //-> Dúvida qual tamanho aconselhado
+            height: metadata.height,
             saveToGallery: true,
             title: `foto campanha ${templateName}`,
             queueId: 20,
