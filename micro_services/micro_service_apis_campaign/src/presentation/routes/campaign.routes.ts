@@ -28,7 +28,9 @@ const filtersRepository = new FiltersRepository();//filtersRepository,
 const recipientGroupRepository = new RecipientGroupRepository();
 const filterStrategyFactory = new FilterStrategyFactory(filtersRepository);
 const filterService = new FilterService(filterStrategyFactory);
-const saveCampaignUseCase = new SaveCampaignUseCase(campaignRepository, recipientGroupRepository, filtersRepository, filterService);
+const emailStatisticsRepository9 = new StatisticsEmailCampaignRepository();
+const whatsStatisticsRepository9 = new StatisticsWhatsCampaignRepository();
+const saveCampaignUseCase = new SaveCampaignUseCase(campaignRepository, recipientGroupRepository, filtersRepository, filterService, emailStatisticsRepository9, whatsStatisticsRepository9);
 const campaignController = new CampaignController(saveCampaignUseCase, undefined, undefined, undefined, undefined, undefined, undefined);
 router.post('/save', campaignController.save.bind(campaignController));
 

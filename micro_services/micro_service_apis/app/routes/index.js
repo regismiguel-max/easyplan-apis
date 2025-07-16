@@ -25,6 +25,7 @@ require('./utils/regrasDeBonificacao/regrasDeBonificacao.routes')(app);
 require('./utils/vigenciaeFechamento/vigenciaeFechamento.routes')(app);
 require('./utils/ckeditor.routes')(app);
 require('./utils/maintenance/maintenance.routes')(app);
+require('./utils/azure.routes')(app);
 
 require('./corretoras/corretoras.routes')(app);
 require('./corretoras/contato.routes')(app);

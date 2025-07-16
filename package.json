@@ -12,6 +12,7 @@
     "start:cron": "node ./cron/cronServer.js",
     "start:worker:push": "node ./workers/push/pushWorker.js",
     "build:worker:campaign": "tsc -p ./micro_services/micro_service_apis_campaign",
+    "build:automation": "tsc -p ./micro_services/micro_service_apis_automation",
     "start:worker:campaign": "node ./micro_services/micro_service_apis_campaign/dist/infrastructure/queue/workers/campaign.worker.js",
     "start:bullboard": "node ./dashboard/bullBoard.js",
     "testar-push": "node ./micro_services/micro_service_apis_clientes/testarPushBoletos.js",

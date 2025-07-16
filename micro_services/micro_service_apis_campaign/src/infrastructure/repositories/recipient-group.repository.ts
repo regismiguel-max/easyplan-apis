@@ -5,10 +5,15 @@ import RecipientGroupModel from "../database/models/recipient-group.models";
 import { sequelizeWhereToSQL } from "../../utils/sql-recipient-group/where-to-sql.util";
 import { FilterStep } from "../../domain/entities/interfaces/email-campaign/output/process-filter.interface";
 import connection_db from "../database/config/database";
+import ClienteBeneficiarioTesteModel from "../database/models/client-test.model";
 
 export default class RecipientGroupRepository {
     //************************** RECIPIENT GROUP REPOSITORY ***************************/
     async getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string> {
+        // const recipientGroupDB = await ClientModel.findAll({
+        //     where: filters,
+        //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
+        // });
         const recipientGroupDB = await ClientModel.findAll({
             where: filters,
             attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']

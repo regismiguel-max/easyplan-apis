@@ -26,6 +26,9 @@ module.exports = (sequelize, Sequelize) => {
         estadoID: {
             type: Sequelize.STRING
         },
+        urlBI: {
+            type: Sequelize.STRING
+        },
     });
 
     return User;
