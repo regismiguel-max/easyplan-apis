@@ -14,7 +14,7 @@ export default class RecipientGroupRepository {
         //     where: filters,
         //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         // });
-        const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
+        const recipientGroupDB = await ClientModel.findAll({
             where: filters,
             attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         });

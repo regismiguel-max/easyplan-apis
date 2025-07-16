@@ -12,6 +12,8 @@ import CRUDCampaignDTO from "../../presentation/dtos/crud-campaign.dto";
 import IFiltersRepository from "../../domain/contracts/repositories/IFiltersRepository";
 import { NotRecipient } from "../../domain/entities/interfaces/not-recipient.interface";
 import { WhereOptions } from "sequelize";
+import StatisticsEmailCampaignRepository from "../../infrastructure/repositories/statistics-email-campaign.repository";
+import StatisticsWhatsCampaignRepository from "../../infrastructure/repositories/statistics-whats-campaign.repository";
 
 export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
 
@@ -19,7 +21,9 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
         private campaignRepository: ICampaignRepository,
         private recipientGroupRepository: RecipientGroupRepository,
         private filtersRepository: IFiltersRepository,
-        private filterService: IFilterService
+        private filterService: IFilterService,
+        private emailStatisticsRepository: StatisticsEmailCampaignRepository,
+        private whatsStatisticsRepository: StatisticsWhatsCampaignRepository,
     ){}
 
     public async execute(dto: CRUDCampaignDTO): Promise<Campaign | NotRecipient> {
@@ -32,7 +36,8 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
         
         const dataToSave: DataToSave = await campaignEntity.whatsIShouldSave();
         console.log('Dados de persistência criados e em mãos: ', dataToSave);
-        
+        let recipientGroupCount: number = 0;
+
         if(dataToSave.filters) {
             let responses: {
                 whereClause?: WhereOptions;
@@ -53,6 +58,8 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
             diagnostics.report.forEach(msg => console.log(msg));
 
             let filterNoHasRecipient: string[] | string = diagnostics.report.filter(item => item.includes('0 r'));
+
+            recipientGroupCount = diagnostics.totalFinal;
 
             // filterNoHasRecipient = filterNoHasRecipient[0].split('❌')[1]?.split(':')[0]?.trim();
             // console.log('Vê se deu certo a manipulação do retorno');
@@ -135,6 +142,12 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
             console.log('Grupo destinatário persistido com sucesso');
             
             response.recipientGroupSaved = recipientGroupSaved;
+
+            if(campaignEntity.baseInformations.typeCampaign === 'email') {
+                await this.emailStatisticsRepository.create(recipientGroupCount, campaignEntity.baseInformations.id);
+            } else if(campaignEntity.baseInformations.typeCampaign === 'whatsapp'){
+                await this.whatsStatisticsRepository.create(recipientGroupCount, campaignEntity.baseInformations.id);
+            }
         }
 
         console.log('Resposta do DTO do useCase finalizado: ', response);
