@@ -63,6 +63,7 @@ require('./supervisores/apoio_vendas/operators.routes')(app);
 require('./supervisores/utils/regrasBonificacao.routes')(app);
 require('./supervisores/utils/vigenciaFechamento.routes')(app);
 require('./supervisores/access/token.routes')(app);
+require('./supervisores/desafios/desafios.routes.js')(app);
 
 require('./whatsapp/whatsappcorretora.routes')(app);
 
