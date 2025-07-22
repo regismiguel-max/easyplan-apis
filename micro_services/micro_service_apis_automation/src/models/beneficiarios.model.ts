@@ -166,7 +166,8 @@ export default class ClienteDigitalBeneficiarioModel extends Model<
         ajuste: { type: DataTypes.STRING },
         origem_de_venda: { type: DataTypes.STRING, field: "origem_de_venda" },
         valor_contrato: {
-          type: DataTypes.STRING,
+          type: DataTypes.TEXT,
+          field: "valor_contrato",
           allowNull: true,
           defaultValue: null,
         }
