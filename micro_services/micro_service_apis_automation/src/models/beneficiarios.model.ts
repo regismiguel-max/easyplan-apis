@@ -72,6 +72,7 @@ export interface ClienteDigitalBeneficiarioAttributes {
   forma_de_ajuste?: string;
   ajuste?: string;
   origem_de_venda?: string;
+  valor_contrato?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -162,6 +163,11 @@ export default class ClienteDigitalBeneficiarioModel extends Model<
         forma_de_ajuste: { type: DataTypes.STRING, field: "forma_de_ajuste" },
         ajuste: { type: DataTypes.STRING },
         origem_de_venda: { type: DataTypes.STRING, field: "origem_de_venda" },
+        valor_contrato: {
+          type: DataTypes.STRING,
+          allowNull: true,
+          defaultValue: null,
+        }
       },
       {
         sequelize,
