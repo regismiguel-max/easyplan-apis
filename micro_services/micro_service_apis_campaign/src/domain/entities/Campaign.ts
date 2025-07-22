@@ -65,6 +65,12 @@ export default class CampaignEntity {
                 filterByPlan: this.filters.booleanFiltersFlags.filterByPlan,
                 filterByUf: this.filters.booleanFiltersFlags.filterByUf,
                 filterByValidity: this.filters.booleanFiltersFlags.filterByValidity,
+                filterByBirth: this.filters.booleanFiltersFlags.filterByBirth,
+                filterByDay: this.filters.booleanFiltersFlags.filterByDay,
+                filterByMonth: this.filters.booleanFiltersFlags.filterByMonth,
+                filterByYear: this.filters.booleanFiltersFlags.filterByYear,
+                filterByGender: this.filters.booleanFiltersFlags.filterByGender,
+                gender: this.filters.filterValues.gender,
             },
             filters: null,
             // schedule: null

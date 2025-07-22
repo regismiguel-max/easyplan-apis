@@ -25,4 +25,19 @@ export class UfFilterStrategy implements IFilterStrategy {
         
         return { uf: { [Op.in]: estadoUFS } };
     }
+
+    async pureBuildWhereClause(ids: number[]): Promise<WhereOptions> {
+        const estadoUFS = [];
+        
+        for (const id of ids) {
+            const uf = await this.filtersRepository.getUfById(id);
+            estadoUFS.push(uf.estadoUF);
+        }
+        
+        return { uf: { [Op.in]: estadoUFS } };
+    }
+
+    getLabel(): string {
+        return 'Uf';
+    }
 }

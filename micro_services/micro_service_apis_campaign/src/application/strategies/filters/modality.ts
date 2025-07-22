@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, WhereOptions } from "sequelize";
 import IFilterStrategy from "../../../domain/contracts/strategies/IFilterStrategy";
 import IFiltersRepository from "../../../domain/contracts/repositories/IFiltersRepository";
 
@@ -23,5 +23,22 @@ export class ModalityFilterStrategy implements IFilterStrategy {
         }
         
         return { modalityDescricao: { [Op.in]: modalityDescricao } };
+    }
+
+    getLabel(): string {
+        return 'Modalidade';
+    }
+
+    async pureBuildWhereClause(ids: number[]): Promise<WhereOptions> {
+        const codigoProdutos = [];
+        
+        for (const id of ids) {
+            const operator = await this.filtersRepository.getOperatorById(id);
+            codigoProdutos.push(operator.nome_operadora);
+        }
+
+        console.log('Vamos entender operadora: ', codigoProdutos);
+        
+        return { operadora: { [Op.in]: codigoProdutos } };
     }
 }

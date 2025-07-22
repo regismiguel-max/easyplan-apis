@@ -55,7 +55,7 @@ morganBody(app, {
 app.use(cors(corsOptions));
 
 // ✅ Middleware Body Parser (se preferir, pode usar express.json() e express.urlencoded())
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '5mb' }));
 
 // ✅ Rotas
 app.use("/campaign/email", campaignRoutes);

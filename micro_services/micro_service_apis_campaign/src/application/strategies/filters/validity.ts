@@ -28,4 +28,14 @@ export class ValidityFilterStrategy implements IFilterStrategy {
         
         return { vigencia: { [Op.between]: validityRange } };
     }
+
+    async pureBuildWhereClause(validityFilterValues: [string, string]): Promise<WhereOptions> {
+        console.log('Vamos vê o que danado é Validity: ', validityFilterValues);
+        
+        return { vigencia: { [Op.between]: validityFilterValues } };
+    }
+
+    getLabel(): string {
+        return 'Vigência';
+    }
 }

@@ -25,4 +25,19 @@ export class PlanFilterStrategy implements IFilterStrategy {
         
         return { plano: { [Op.in]: nomePlano } };
     }
+
+    async pureBuildWhereClause(ids: number[]): Promise<WhereOptions> {
+        const nomePlano = [];
+        
+        for (const id of ids) {
+            const plan = await this.filtersRepository.getPlanById(id);
+            nomePlano.push(plan.nome_plano);
+        }
+        
+        return { plano: { [Op.in]: nomePlano } };
+    }
+
+    getLabel(): string {
+        return 'Plano';
+    }
 }

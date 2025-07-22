@@ -11,6 +11,7 @@ export interface SendEmailCampaignDTO {
 export interface SendWhatsappCampaignDTO {
     baseData: BaseDataToSend;
     template: string;
+    imageId?: number;
     recipientGroup: number[];
     channel: string | null;
     recipientsGroupCount: number;

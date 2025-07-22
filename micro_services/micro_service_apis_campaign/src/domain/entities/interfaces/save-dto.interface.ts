@@ -7,6 +7,9 @@ import Operator from "./filters/operator.interface";
 import Plan from "./filters/plan.interface";
 import Uf from "./filters/uf.interface";
 import Validity from "./filters/validity.interface";
+import { FilterStep } from "./email-campaign/output/process-filter.interface";
+import StatisticsEmail from "./email-campaign/statistics-email.interface";
+import StaticticsWhatsapp from "./whats-campaign/statistics-whatsapp.interface";
 
 export default interface SaveDTO {
     campaign: Campaign;
@@ -20,4 +23,6 @@ export default interface SaveDTO {
     recipientGroup?: Partial<RecipientGroup>[] | null;
     notRecipientGroup?: string | null;
     recipientGroupSaved?: RecipientGroup[] | null;
+    filterStep?: FilterStep[];
+    statistics?: StatisticsEmail | StaticticsWhatsapp;
 }

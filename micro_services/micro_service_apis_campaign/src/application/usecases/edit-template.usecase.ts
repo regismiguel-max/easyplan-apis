@@ -11,13 +11,15 @@ export default class EditTemplateUseCase implements IEditTemplateUseCase {
 
     public async execute(dto: TemplateDTO): Promise<Template> {
         if(!dto) throw new Error('Use case não recebeu nenhum DTO para trabalhar');
-        if (!dto.templateId) throw new Error('Template ID é obrigatório para edição');
+        if (!dto.id) throw new Error('Template ID é obrigatório para edição');
         
         // Buscar o template existente
-        const existingTemplate: Template = await this.templateRepository.findById(dto.templateId);
+        const existingTemplate: Template = await this.templateRepository.findById(dto.id);
         if (!existingTemplate) throw new Error('Template não encontrado');
 
-        const folderPath: string = path.join(__dirname, '../../../../templateHTML');
+        const folderPath: string = path.resolve(__dirname, '../../../templateHTML');
+        console.log('Vamos vê o path puro: ', folderPath);
+        
 
         const currentFileName: string = `${existingTemplate.templateName}.html`;
         const currentFilePath: string = path.join(folderPath, currentFileName);
@@ -41,16 +43,13 @@ export default class EditTemplateUseCase implements IEditTemplateUseCase {
         } catch (error) {
             throw new Error('Erro ao manipular arquivos no sistema');
         }
-
-        // Pegar o caminho absoluto
-        const absolutePath = path.resolve(newFilePath);
                 
         // Criar Instância de Email Template com o caminho do arquivo
         const emailTemplate = new TemplateEntity(
             dto.templateName,
-            absolutePath,
-            'email',
-            dto.templateId
+            newFileName,
+            dto.typeTemplate,
+            dto.id
         );
         if(!emailTemplate.id) throw new Error('emailTemplate sem id para ser persistido');
         
@@ -61,7 +60,9 @@ export default class EditTemplateUseCase implements IEditTemplateUseCase {
     
         const updatedTemplate: Template = await this.templateRepository.findById(emailTemplate.id);
 
-        const htmlContent = fs.readFileSync(updatedTemplate.templateContent, 'utf-8');
+        const absolutePath = path.join(folderPath, updatedTemplate.templateContent)
+
+        const htmlContent = fs.readFileSync(absolutePath, 'utf-8');
                     
         updatedTemplate.templateContent = htmlContent;
 
@@ -70,6 +71,7 @@ export default class EditTemplateUseCase implements IEditTemplateUseCase {
             templateName: updatedTemplate.templateName,
             templateContent: updatedTemplate.templateContent,
             typeTemplate: updatedTemplate.typeTemplate,
+            imageId: updatedTemplate.imageId,
             createdAt: updatedTemplate.createdAt,
             updatedAt: updatedTemplate.updatedAt
         }

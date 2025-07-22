@@ -90,21 +90,25 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
         const chunkSize = 500;
         let chunks: (string | number)[][] = [];
         if(campaign.campaign.typeCampaign === 'whatsapp'){
-          // clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
-          //   const ddd = rg.ddd_celular;
-          //   const celular = rg.celular;
+          if(process.env.NODE_ENV === 'development') {
+            clientNumbers = [
+              84994969191,
+              54992389702,
+              61993598991,
+              899929220040
+            ]
+            chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
+          } else {
+            clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
+              const ddd = rg.ddd_celular;
+              const celular = rg.celular;
+              
+              const number = ddd + celular;
+              return number;
+            }))];
+            chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
+          }
 
-          //   const number = ddd + celular;
-          //   return number;
-          // }))];
-
-          clientNumbers = [
-            84994969191,
-            54992389702,
-            61993598991,
-            899929220040
-          ]
-          chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
 
         } else if(campaign.campaign.typeCampaign === 'email') {
           if(process.env.NODE_ENV === 'development') {
@@ -169,6 +173,8 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
               chunkIndex: i + 1,
               totalChunks,
             } as SendEmailCampaignDTO;
+
+            
           } else if(baseData.typeCampaign === 'whatsapp' && plainText) {
             sendData = {
               baseData,
@@ -179,6 +185,10 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
               chunkIndex: i + 1,
               totalChunks,
             } as SendWhatsappCampaignDTO;
+
+            if(templateDB.imageId){
+              sendData.imageId = Number(templateDB.imageId);
+            }
           }  else {
             throw new Error('❌ Tipo de campanha inválido ou template WhatsApp ausente!');
           }

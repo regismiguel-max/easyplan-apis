@@ -16,6 +16,11 @@ export interface BooleanFiltersFlags {
   filterByPlan: boolean;
   filterByUf: boolean;
   filterByValidity: boolean;
+  filterByBirth: boolean;
+  filterByDay: boolean;
+  filterByMonth: boolean;
+  filterByYear: boolean;
+  filterByGender: boolean;
   // doSchedule: boolean;
 }
 
@@ -25,5 +30,7 @@ export interface FilterValues {
   contractStatus: number[];
   uf: number[];
   ageRange: [number | null, number | null];
+  birth: (number | string | null)[];
   validity: [string, string];
+  gender: string;
 }

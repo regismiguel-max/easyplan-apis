@@ -7,6 +7,7 @@ import { OperatorFilterStrategy } from "./filters/operator";
 import { PlanFilterStrategy } from "./filters/plan";
 import { UfFilterStrategy } from "./filters/uf";
 import { ValidityFilterStrategy } from "./filters/validity";
+import { BirthFilterStrategy } from "./filters/birth";
 
 export default class FilterStrategyFactory {
   constructor(private filtersRepository: IFiltersRepository) {}
@@ -29,6 +30,8 @@ export default class FilterStrategyFactory {
         return new AgeRangeFilterStrategy(this.filtersRepository);
       case 'validity':
         return new ValidityFilterStrategy(this.filtersRepository);
+      case 'birth':
+        return new BirthFilterStrategy(this.filtersRepository);
       // Outros casos...
       default:
         throw new Error(`Filtro não suportado: ${filterType}`);

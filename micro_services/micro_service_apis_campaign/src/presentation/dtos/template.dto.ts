@@ -1,17 +1,6 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString, MinLength, ValidateIf } from "class-validator";
 
 class TemplateDTO {
-    // @IsNotEmpty({ message: "O ID da campanha é obrigatório" })
-    // @IsString()
-    // @IsNotEmpty({ message: "O nome de quem criou o template é obrigatório" })
-    // public createdBy: string;
-
-    // @IsString()
-    // @IsOptional()
-    // @MinLength(2)
-    // @ValidateIf(o => !o.templateId) // Apenas obrigatório se templateId NÃO estiver presente
-    // public htmlData?: string;
-    
     @IsString()
     @IsNotEmpty({ message: "O html do template do e-mail é obrigatório" })
     public templateContent: string;
@@ -24,10 +13,13 @@ class TemplateDTO {
     @IsNotEmpty({ message: "O nome do template do e-mail é obrigatório" })
     public typeTemplate: string;
     
+    @IsString()
+    @IsOptional()
+    public image?: string;
+
     @IsNumber()
     @IsOptional()
-    // @ValidateIf(o => !o.htmlData) // Apenas obrigatório se htmlContent NÃO estiver presente
-    public templateId?: number;
+    public id?: number;
     
     @IsNumber()
     @IsOptional()
@@ -39,7 +31,8 @@ class TemplateDTO {
         this.templateName = data.templateName;
         this.typeTemplate = data.typeTemplate;
 
-        if(data.templateId) this.templateId = data.templateId;
+        if(data.id) this.id = data.id;
+        if(data.image) this.image = data.image;
         if(data.campaignId) this.campaignId = data.campaignId;
         // this.createdBy = data.createdBy ?? "";
     }

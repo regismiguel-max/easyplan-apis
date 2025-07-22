@@ -12,8 +12,8 @@ module.exports = (app) => {
     });
 
     app.get(
-        "/azure/token", [authJwt.verifyToken],
-        controller.getEmbedToken
+        "/azure/token-with-password/:id", [authJwt.verifyToken],
+        controller.getAccessTokenWithPassword
     );
 
 };
