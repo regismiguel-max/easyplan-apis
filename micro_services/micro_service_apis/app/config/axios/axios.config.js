@@ -12,13 +12,33 @@ module.exports = {
         },
         httpAgent: new http.Agent({
             keepAlive: true,
-            keepAliveMsecs : 0,
+            keepAliveMsecs: 0,
             timeout: 120000,
             scheduling: 'fifo',
         }),
         httpsAgent: new https.Agent({
             keepAlive: true,
-            keepAliveMsecs : 0,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+    }),
+
+    digital: axios.create({
+        baseURL: process.env.BASEURL,
+        headers: {
+            'token': process.env.token,
+            'senhaApi': process.env.senhaApi,
+        },
+        httpAgent: new http.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+        httpsAgent: new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
             timeout: 120000,
             scheduling: 'fifo',
         }),

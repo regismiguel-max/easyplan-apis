@@ -26,6 +26,7 @@ require('./utils/vigenciaeFechamento/vigenciaeFechamento.routes')(app);
 require('./utils/ckeditor.routes')(app);
 require('./utils/maintenance/maintenance.routes')(app);
 require('./utils/azure.routes')(app);
+require('./utils/operadoras.routes')(app);
 
 require('./corretoras/corretoras.routes')(app);
 require('./corretoras/contato.routes')(app);
@@ -41,6 +42,7 @@ require('./corretoras/twoFactorAuthentication.routes')(app);
 require('./corretoras/categoria.routes')(app);
 require('./corretoras/auth.routes')(app);
 require('./corretoras/forgot.routes')(app);
+require('./corretoras/vendas.routes')(app);
 
 require('./corretoras-commissions/loteCommissions.routes')(app);
 require('./corretoras-commissions/subLoteCommissions.routes')(app);
@@ -67,6 +69,7 @@ require('./supervisores/access/token.routes')(app);
 require('./whatsapp/whatsappcorretora.routes')(app);
 
 require('./wallets/walletProdutor.routes')(app);
+require('./wallets/walletCorretora.routes')(app);
 
 require('./produtores/produtores.routes')(app);
 require('./produtores/contato.routes')(app);
@@ -77,5 +80,6 @@ require('./produtores/situacao.routes')(app);
 require('./produtores/twoFactorAuthentication.routes')(app);
 require('./produtores/auth.routes')(app);
 require('./produtores/forgot.routes')(app);
+require('./produtores/vendas.routes')(app);
 
 module.exports = app;
