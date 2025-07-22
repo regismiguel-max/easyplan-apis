@@ -108,6 +108,9 @@ db.produtorWalletsBonuses = require("./bonuses/produtorWalletsBonuses.model.js")
 db.produtorTransactionsBonuses = require("./bonuses/produtorTransactionsBonuses.model.js")(sequelize, Sequelize);
 db.produtorPaymentsBonuses = require("./bonuses/produtorPaymentsBonuses.model.js")(sequelize, Sequelize);
 
+db.incentives = require("./incentivos-comerciais/incentives.model.js")(sequelize, Sequelize);
+db.incentives_results = require("./incentivos-comerciais/incentives-results.model.js")(sequelize, Sequelize);
+
 
 db.role.belongsToMany(db.user, {
     through: "user_role",
@@ -457,5 +460,24 @@ db.ROLES = ["admin", "agent", "operator", "client"];
 // db.produtores_situacoes.create({ id: 3,nome: 'EM ANALISE', descricao: 'Situação em em análise' })
 // db.produtores_situacoes.create({ id: 4,nome: 'PENDENTE', descricao: 'Situação em pendencia' })
 
+db.incentives.hasOne(db.incentives_results, {
+    foreignKey: 'incentive_id',
+    as: 'result'
+});
+
+db.incentives_results.belongsTo(db.incentives, {
+    foreignKey: 'incentive_id',
+    as: 'incentive'
+})
+
+db.incentives.hasOne(db.user, {
+    foreignKey: 'user_id',
+    as: 'incentive'
+});
+
+db.user.belongsTo(db.incentives, {
+    foreignKey: 'user_id',
+    as: 'user'
+})
 
 module.exports = db;
