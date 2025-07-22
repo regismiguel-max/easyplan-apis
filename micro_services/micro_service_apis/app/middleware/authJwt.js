@@ -18,7 +18,10 @@ verifyToken = (req, res, next) => {
                 message: "Não autorizado!"
             });
         }
+
+        console.log('Token decodificado:', decoded);
         req.userId = decoded.id;
+        console.log('User Id: ', req.userId);
         next();
     });
 };
