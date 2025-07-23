@@ -41,10 +41,21 @@ exports.getAccessTokenWithPassword = async (req, res) => {
 
     const { access_token, expires_in } = tokenResponse.data;
 
-    // 3. Retornar dados necessários
+    // 3. Verificar se existe JSON com múltiplos relatórios
+    if (user.reports_json && user.reports_json !== 'null' && user.reports_json !== '') {
+      return res.json({
+        token: access_token,
+        expiresIn: expires_in,
+        is_report_json: true,
+        reports_json: user.reports_json,
+      });
+    }
+
+    // Caso não exista JSON
     return res.json({
       token: access_token,
       expiresIn: expires_in,
+      is_report_json: false,
       reportIdBI: user.reportIdBI,
       groupIdBI: user.groupIdBI,
       filtersBI: user.filtersBI,
