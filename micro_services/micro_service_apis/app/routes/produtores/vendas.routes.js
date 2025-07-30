@@ -1,5 +1,5 @@
 const { authJwt } = require("../../middleware");
-const controller = require("../../controllers/utils/azure.controller");
+const controller = require("../../controllers/produtores/vendas.controller");
 
 
 module.exports = (app) => {
@@ -11,9 +11,8 @@ module.exports = (app) => {
         next();
     });
 
-    app.get(
-        "/azure/token-with-password/:id", [authJwt.verifyToken],
-        controller.getAccessTokenWithPassword
+    app.post(
+        "/produtor/vendas/buscarPorCPFNome",
+        controller.buscarPorCPFNome
     );
-
 };

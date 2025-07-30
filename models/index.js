@@ -46,13 +46,6 @@ db.document = require("./apoio_vendas/document.model.js")(sequelize, Sequelize);
 
 db.bonuse = require("./bonuses/bonuses.model.js")(sequelize, Sequelize);
 db.loteBonuses = require("./bonuses/loteBonuses.model.js")(sequelize, Sequelize);
-// db.produtorWalletsBonuses = require("./bonuses/produtorWalletsBonuses.model.js")(sequelize, Sequelize);
-// db.produtorTransactionsBonuses = require("./bonuses/produtorTransactionsBonuses.model.js")(sequelize, Sequelize);
-// db.produtorPaymentsBonuses = require("./bonuses/produtorPaymentsBonuses.model.js")(sequelize, Sequelize);
-
-// db.corretoraWalletsCommissions = require("./corretoras-commissions/corretoraWalletsCommissions.model.js")(sequelize, Sequelize);
-// db.corretoraTransactionsCommissions = require("./corretoras-commissions/corretoraTransactionsCommissions.model.js")(sequelize, Sequelize);
-// db.corretoraPaymentsCommissions = require("./corretoras-commissions/corretoraPaymentsCommissions.model.js")(sequelize, Sequelize);
 
 db.utils_estados = require("./utils/estados.model.js")(sequelize, Sequelize);
 db.utils_cidades = require("./utils/cidades.model.js")(sequelize, Sequelize);
@@ -67,6 +60,7 @@ db.utils_digital_saude_produtos = require("./utils/digitalSaude/produtos.model.j
 db.utils_vigencia_e_fechamento_estados = require("./utils/vigenciaeFechamento/estados.model.js")(sequelize, Sequelize);
 db.utils_vigencia_e_fechamento_operadoras = require("./utils/vigenciaeFechamento/operadoras.model.js")(sequelize, Sequelize);
 db.utils_vigencia_e_fechamento_datas = require("./utils/vigenciaeFechamento/datas.model.js")(sequelize, Sequelize);
+db.utils_operadoras_digital = require("./utils/operadoras.model.js")(sequelize, Sequelize);
 
 db.corretoras = require("./corretoras/corretora.model.js")(sequelize, Sequelize);
 db.corretoras_contatos = require("./corretoras/contato.model.js")(sequelize, Sequelize);
@@ -107,6 +101,8 @@ db.swile_payment = require("./swile/swilePayment.model.js")(sequelize, Sequelize
 db.produtorWalletsBonuses = require("./bonuses/produtorWalletsBonuses.model.js")(sequelize, Sequelize);
 db.produtorTransactionsBonuses = require("./bonuses/produtorTransactionsBonuses.model.js")(sequelize, Sequelize);
 db.produtorPaymentsBonuses = require("./bonuses/produtorPaymentsBonuses.model.js")(sequelize, Sequelize);
+
+db.beneficiariosDigital = require("./beneficiarios/beneficiario.model.js")(sequelize, Sequelize);
 
 db.incentives = require("./incentivos-comerciais/incentives.model.js")(sequelize, Sequelize);
 db.incentives_results = require("./incentivos-comerciais/incentives-results.model.js")(sequelize, Sequelize);

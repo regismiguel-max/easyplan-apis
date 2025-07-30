@@ -102,10 +102,11 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
             clientNumbers = [...new Set(recipientsGroup.map((rg: any) => {
               const ddd = rg.ddd_celular;
               const celular = rg.celular;
-  
+              
               const number = ddd + celular;
               return number;
             }))];
+            chunks = await this.splitIntoChunks(clientNumbers, chunkSize);
           }
 
 

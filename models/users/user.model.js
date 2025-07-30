@@ -29,6 +29,18 @@ module.exports = (sequelize, Sequelize) => {
         urlBI: {
             type: Sequelize.STRING
         },
+        reportIdBI: {
+            type: Sequelize.STRING
+        },
+        groupIdBI: {
+            type: Sequelize.STRING
+        },
+        filtersBI: {
+            type: Sequelize.JSON
+        },
+        reports_json: {
+            type: Sequelize.JSON
+        },
     });
 
     return User;

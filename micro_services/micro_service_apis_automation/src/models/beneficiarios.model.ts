@@ -10,6 +10,7 @@ export interface ClienteDigitalBeneficiarioAttributes {
   data_proximo_reajuste?: string;
   codigo_do_contrato?: string;
   data_de_cancelamento?: string;
+  motivo_de_cancelamento?: string;
   data_de_exclusao?: string;
   numero_da_proposta?: string;
   data_de_inclusao?: string;
@@ -72,6 +73,7 @@ export interface ClienteDigitalBeneficiarioAttributes {
   forma_de_ajuste?: string;
   ajuste?: string;
   origem_de_venda?: string;
+  valor_contrato?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -100,6 +102,7 @@ export default class ClienteDigitalBeneficiarioModel extends Model<
         data_proximo_reajuste: { type: DataTypes.STRING, field: "data_proximo_reajuste" },
         codigo_do_contrato: { type: DataTypes.STRING, field: "codigo_do_contrato" },
         data_de_cancelamento: { type: DataTypes.STRING, field: "data_de_cancelamento" },
+        motivo_de_cancelamento: { type: DataTypes.STRING, field: "motivo_de_cancelamento" },
         data_de_exclusao: { type: DataTypes.STRING, field: "data_de_exclusao" },
         numero_da_proposta: { type: DataTypes.STRING, field: "numero_da_proposta" },
         data_de_inclusao: { type: DataTypes.STRING, field: "data_de_inclusao" },
@@ -162,6 +165,12 @@ export default class ClienteDigitalBeneficiarioModel extends Model<
         forma_de_ajuste: { type: DataTypes.STRING, field: "forma_de_ajuste" },
         ajuste: { type: DataTypes.STRING },
         origem_de_venda: { type: DataTypes.STRING, field: "origem_de_venda" },
+        valor_contrato: {
+          type: DataTypes.TEXT,
+          field: "valor_contrato",
+          allowNull: true,
+          defaultValue: null,
+        }
       },
       {
         sequelize,

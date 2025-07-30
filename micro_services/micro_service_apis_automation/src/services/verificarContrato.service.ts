@@ -37,7 +37,7 @@ export class VerificarContratoService {
                     totalPropostas.processadas++;
 
                     const cpf = proposta?.contratante_cpf?.replace(/\D/g, '');
-                    
+
                     if (!cpf || cpf.length !== 11) {
                         logger.warn(`⚠️ CPF inválido na proposta ${proposta.id}: ${proposta.contratante_cpf}`);
                         return;
@@ -114,6 +114,7 @@ export class VerificarContratoService {
                                     sexo: beneficiario?.sexo?.nome ?? null,
                                     parentesco: beneficiario?.parentesco?.nome ?? null,
                                     status_do_beneficiario: beneficiario?.statusBeneficiario?.nome ?? null,
+                                    valor_contrato: beneficiario?.tipoBeneficiario?.nome === 'Titular' ? contrato.valor : null,
                                 };
 
                                 beneficiariosDados.push(dados);

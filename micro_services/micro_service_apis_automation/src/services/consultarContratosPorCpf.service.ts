@@ -91,6 +91,7 @@ export class ConsultarContratosPorCpfService {
                                 sexo: beneficiario?.sexo?.nome ?? null,
                                 parentesco: beneficiario?.parentesco?.nome ?? null,
                                 status_do_beneficiario: beneficiario?.statusBeneficiario?.nome ?? null,
+                                valor_contrato: beneficiario?.tipoBeneficiario?.nome === 'Titular' ? contrato.valor : null,
                             };
 
                             const jaExiste = await ClienteDigitalBeneficiarioModel.findOne({

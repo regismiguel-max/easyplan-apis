@@ -14,7 +14,7 @@ export default class RecipientGroupRepository {
         //     where: filters,
         //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         // });
-        const recipientGroupDB = await ClientModel.findAll({
+        const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
             where: filters,
             attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         });
@@ -103,7 +103,7 @@ export default class RecipientGroupRepository {
         console.log('Entrou no diagnostic');
         
         let sqlParts: string[] = [];
-        let previousStep = '`cliente_digital_beneficiarios`';
+        let previousStep = '`cliente_digital_beneficiarios_teste`';
 
         for (let i = 0; i < filterSteps.length; i++) {
             const step = filterSteps[i];

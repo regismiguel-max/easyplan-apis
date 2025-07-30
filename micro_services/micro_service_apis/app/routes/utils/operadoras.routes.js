@@ -1,5 +1,5 @@
 const { authJwt } = require("../../middleware");
-const controller = require("../../controllers/utils/azure.controller");
+const controller = require("../../controllers/utils/operadoras.controller");
 
 
 module.exports = (app) => {
@@ -12,8 +12,12 @@ module.exports = (app) => {
     });
 
     app.get(
-        "/azure/token-with-password/:id", [authJwt.verifyToken],
-        controller.getAccessTokenWithPassword
+        "/operadoras",
+        controller.findAll
     );
 
+    app.get(
+        "/operadoras/:id",
+        controller.findOperadora
+    );
 };

@@ -3,7 +3,7 @@ exports.getVersionAPPCliente = (req, res) => {
     res.send(
         {
             "android": {
-                "current": "1.0.28",
+                "current": "1.0.30",
                 "enabled": true,
                 "majorMsg": {
                     "title": "Atualização importante!",
@@ -21,7 +21,7 @@ exports.getVersionAPPCliente = (req, res) => {
                 }
             },
             "ios": {
-                "current": "1.0.29",
+                "current": "1.0.30",
                 "enabled": true,
                 "majorMsg": {
                     "title": "Atualização importante!",
@@ -39,7 +39,7 @@ exports.getVersionAPPCliente = (req, res) => {
                 }
             },
             "web": {
-                "current": "1.0.27",
+                "current": "1.0.30",
                 "enabled": false,
                 "majorMsg": {
                     "title": "Atualização importante!",

@@ -489,18 +489,22 @@ sendMessageSarah = async (req, res) => {
                     apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
                     number: element.number,
                     country: "+55",
-                    text: `Olá, ${element.name}, boa tarde!
+                    text: `📢 Olá, ${element.name}, bom dia!
 
-Verificamos que sua mensalidade do plano de saúde *ainda consta em aberto*.
+*Temos uma última oportunidade para resolver sua pendência financeira!*
 
-⚠️ É importante regularizar o quanto antes para evitar a *suspensão do atendimento* e o *risco de cancelamento do plano por inadimplência*.
+Consta em nosso sistema uma *pendência financeira ativa*, já registrada no *Serasa*. ⛔
 
-Se estiver passando por alguma dificuldade, estamos aqui para *ajudar com uma negociação que se ajuste à sua realidade*.
+Estamos oferecendo *boas condições de negociação*, mas é fundamental agir com urgência.
 
-Fale com a gente e vamos resolver isso da forma mais simples possível. 🤝
+💡 Regularizando agora, você evita *protesto em cartório* e o início de um *processo judicial*.
+
+📲 *Responda esta mensagem* para conhecer as opções disponíveis e resolver de forma rápida e segura.
+
+Estamos à disposição para ajudar!
 `,
-                    campaignName: "Envio - 26-06-2025",
-                    extData: "Envio - 26-06-2025",
+                    campaignName: "Envio - 18-07-2025",
+                    extData: "Envio - 18-07-2025",
                     extFlag: 1,
                     hidden: false
                 });

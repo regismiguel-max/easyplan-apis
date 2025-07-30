@@ -92,6 +92,14 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.BOOLEAN,
             defaultValue: false,
         },
+        campaign: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false,
+        },
+        panelBI: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false,
+        },
     });
 
     return UserPermissions;

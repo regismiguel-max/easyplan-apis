@@ -107,6 +107,7 @@ export class AtualizarBeneficiariosService {
                                     sexo: beneficiario?.sexo?.nome ?? null,
                                     parentesco: beneficiario?.parentesco?.nome ?? null,
                                     status_do_beneficiario: beneficiario?.statusBeneficiario?.nome ?? null,
+                                    valor_contrato: beneficiario?.tipoBeneficiario?.nome === 'Titular' ? contrato.valor : null,
                                 };
 
                                 beneficiariosDados.push(dados);
