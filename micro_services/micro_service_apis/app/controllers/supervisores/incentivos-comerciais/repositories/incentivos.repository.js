@@ -22,7 +22,9 @@ class IncentiveRepository {
                 payment_life: payload.lifePrice || null,
                 payment_challenge: payload.challengePrice || null,
                 cnpj: payload.cnpjCorretora,
-                user_id: payload.user_id
+                user_id: payload.user_id,
+                corretora_id: payload.corretora_id,
+                status: payload.status
             };
 
             console.log('payload criado: ', data);

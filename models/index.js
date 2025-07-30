@@ -110,6 +110,7 @@ db.produtorPaymentsBonuses = require("./bonuses/produtorPaymentsBonuses.model.js
 
 db.incentives = require("./incentivos-comerciais/incentives.model.js")(sequelize, Sequelize);
 db.incentives_results = require("./incentivos-comerciais/incentives-results.model.js")(sequelize, Sequelize);
+db.incentives_propostas = require("./incentivos-comerciais/incentives-qualitative.model.js")(sequelize, Sequelize);
 
 
 db.role.belongsToMany(db.user, {
@@ -480,4 +481,25 @@ db.user.belongsTo(db.incentives, {
     as: 'user'
 })
 
+db.incentives.belongsTo(db.corretoras, {
+    foreignKey: 'corretora_id',
+    as: 'corretora'
+});
+
+db.corretoras.hasMany(db.incentives, {
+    foreignKey: 'corretora_id',
+    as: 'incentives'
+})
+
+// Um Incentivo possui muitas propostas
+db.incentives.hasMany(db.incentives_propostas, {
+    foreignKey: 'incentive_id',
+    as: 'propostas'
+});
+
+// Cada proposta pertence a um Incentivo
+db.incentives_propostas.belongsTo(db.incentives, {
+    foreignKey: 'incentive_id',
+    as: 'incentivo'
+});
 module.exports = db;

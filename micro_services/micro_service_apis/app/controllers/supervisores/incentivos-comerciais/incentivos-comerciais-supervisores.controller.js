@@ -5,6 +5,8 @@ const Corretora = db.corretoras;
 
 const IncentiveRepository = require("./repositories/incentivos.repository");
 const { validateIncentivePayload } = require("./validators/incentive-validators");
+const corretoraModel = require("../../../../../../models/corretoras/corretora.model");
+const PlaniumPropostaService = require("./services/planium-propostas.service");
 
 class IncentiveController {
 
@@ -20,7 +22,7 @@ class IncentiveController {
 
         const IncentiveRepositoryInstance = new IncentiveRepository();
         const result = await IncentiveRepositoryInstance.save(payload);
-        console.log('Persistido');
+        console.log('Persistido: ', result);
         
         return res.status(201).json({
             sucesso: true,
@@ -43,7 +45,8 @@ class IncentiveController {
             console.log('Passou na validação');
             
             const incentives = await db.incentives.findAll({
-                where: {user_id}
+                where: {user_id},
+                include: {model: db.corretoras, as: 'corretora'}
             })
             
             console.log('Incentivos Encontrados: ', incentives);
@@ -66,10 +69,16 @@ class IncentiveController {
             const incentive_id = req.query.incentive_id;
             
             if (!incentive_id) return res.status(400).json({ sucesso: false, message: 'Não foi encontrado nenhum user_id ou identificador do incentivo nos parâmetros da requisição' });
-            console.log('Passou na validação');
+            console.log('Passou na validação: ', incentive_id);
             
-            const incentive = await db.incentives.findByPk(incentive_id)
-            console.log('Persistido');
+            const incentive = await db.incentives.findByPk(incentive_id, {
+                include: [
+                    {model: db.corretoras, as: 'corretora'},
+                    {model: db.incentives_propostas, as: 'propostas'},
+                    {model: db.incentives_results, as: 'result'}
+                ]
+            })
+            console.log('Persistido: ', incentive);
             
             return res.status(201).json({
                 sucesso: true,
@@ -99,17 +108,16 @@ class IncentiveController {
             
             const IncentiveRepositoryInstance = new IncentiveRepository();
             const result = await IncentiveRepositoryInstance.update(payload, incentive_id);
-            console.log('Atualizado');
+            console.log('Atualizado', result);
             
             return res.status(201).json({
                 sucesso: true,
                 message: "Incentivo atualizado com sucesso.",
-                data: result.incentive,
             });
         } catch (error) {
             return res.status(500).json({
                 sucesso: false,
-                message: error.message || "Erro inesperado ao criar incentivo.",
+                message: error.message || "Erro inesperado ao atualizar incentivo.",
             });
         }
     }
@@ -177,6 +185,86 @@ class IncentiveController {
             .status(500)
             .json({ message: "Erro ao buscar corretoras.", erro: error });
         }
+    }
+
+    async getSales(req, res) {
+        const planiumPayload = req.body;
+        console.log('Chegou na controller: ', planiumPayload);
+
+        const apiPleniumService = new PlaniumPropostaService();
+
+        apiPleniumService.getPropostas(planiumPayload);
+    }
+
+    async getUltimaProposta(req, res) {
+        try {
+            // const user_id = req.query.user_id;
+            const incentive_id = req.query.incentive_id;
+            
+            if (!incentive_id) return res.status(400).json({ sucesso: false, message: 'Não foi encontrado nenhum user_id ou identificador do incentivo nos parâmetros da requisição' });
+            console.log('Passou na validação: ', incentive_id);
+            
+            const propostaDataCriacao = await db.incentives_propostas.findOne({
+                where: {incentive_id},
+                order: [['data_criacao', 'DESC']],
+                attributes: [ 'data_criacao' ]
+            })
+            console.log('Olha o retorno: ', propostaDataCriacao);
+            
+            if(propostaDataCriacao){
+                return res.status(201).json({
+                    sucesso: true,
+                    message: "Tem dado",
+                    data: propostaDataCriacao,
+                });
+            } else {
+                return res.status(201).json({
+                    sucesso: true,
+                    message: "Não tem dado",
+                });
+            }
+        } catch (error) {
+            return res.status(500).json({
+                sucesso: false,
+                message: error.message || "Erro inesperado ao criar incentivo.",
+            });
+        }
+    }
+
+    async getFaturaPaga(req, res) {
+        const incentive_id = req.query.incentive_id;
+
+        console.log('Caiu no server e com o id certin: ', incentive_id);
+        //Pegar todos os CPF das vendas relacionadas ao Desafio em questão
+        const propostasDB = await db.incentives_propostas.findAll({
+            where: {incentive_id}
+        });
+
+        console.log('Validar o retorno de propostas: ', propostasDB);
+        
+        const propostas = propostasDB.map(proposta => proposta.get({plain: true}))
+
+        // Realizar a query no nosso banco Buscando o codigo_do_contrato na tabela de Beneficiário através do CPF
+        let codigos_cpfs = [];
+        for(let proposta of propostas){
+            const codigoDB = await db.automation_cliente_digital_beneficiario.findOne({
+                where: {cpf: proposta.contratante_cpf},
+                attributes: ['codigo_do_contrato']
+            });
+
+            const codigo = codigoDB.map(codigo => codigo.get({plain: true}))
+
+            codigos_cpfs.push(
+                {
+                    cpf: proposta.contratante_cpf,
+                    codigo
+                }
+            );
+        }
+
+        console.log('Vejamos como ficou o final de tudo: ', codigos_cpfs);
+        
+        // Realizar a query no Digital Saúde por Fatura paga através do codigo_do_contrato do Beneficiário
     }
 }
 

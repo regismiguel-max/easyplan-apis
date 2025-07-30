@@ -1,3 +1,5 @@
+const corretoraModel = require("../corretoras/corretora.model");
+
 module.exports = (sequelize, Sequelize) => {
     const Incentives = sequelize.define("supervisores_incentivos_comerciais", {
         id: {
@@ -66,6 +68,19 @@ module.exports = (sequelize, Sequelize) => {
         },
         cnpj: {
             type: Sequelize.STRING
+        },
+        corretora_id: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            references: {
+                model: 'corretoras',
+                key: 'id'
+            }
+        },
+        status: {
+            type: Sequelize.STRING,
+            allowNull: false,
+            defaultValue: 'parado'
         }
     });
 

@@ -8,4 +8,7 @@ module.exports = (app) => {
     app.get("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.getById);
     app.put("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.update);
     app.delete("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.delete);
+    app.post("/supervisor/incentivo/sales", [authJwt.verifyToken] , IncentiveController.getSales);
+    app.get("/supervisor/incentivo/ultima-proposta", [authJwt.verifyToken] , IncentiveController.getUltimaProposta);
+    app.get("/supervisor/fatura/paga", [authJwt.verifyToken], IncentiveController.getFaturaPaga);
 };
