@@ -102,7 +102,13 @@ db.produtorWalletsBonuses = require("./bonuses/produtorWalletsBonuses.model.js")
 db.produtorTransactionsBonuses = require("./bonuses/produtorTransactionsBonuses.model.js")(sequelize, Sequelize);
 db.produtorPaymentsBonuses = require("./bonuses/produtorPaymentsBonuses.model.js")(sequelize, Sequelize);
 
+db.corretoraWalletsCommissions = require("./corretoras-commissions/corretoraWalletsCommissions.model.js")(sequelize, Sequelize);
+db.corretoraTransactionsCommissions = require("./corretoras-commissions/corretoraTransactionsCommissions.model.js")(sequelize, Sequelize);
+db.corretoraPaymentsCommissions = require("./corretoras-commissions/corretoraPaymentsCommissions.model.js")(sequelize, Sequelize);
+
 db.beneficiariosDigital = require("./beneficiarios/beneficiario.model.js")(sequelize, Sequelize);
+
+db.systemConfigCheck = require("./system-config/systemConfigCheck.model.js")(sequelize, Sequelize);
 
 
 db.role.belongsToMany(db.user, {

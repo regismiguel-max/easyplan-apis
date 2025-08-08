@@ -29,7 +29,8 @@ exports.addNFDocumento = async (req, res) => {
         motivo: 'Upload para análise',
         valor_liquido: req.body.valorLiquido ? req.body.valorLiquido : null,
         data_emissao: req.body.dataEmissao ? req.body.dataEmissao : null,
-        numero_NF: req.body.numeroNF ? req.body.numeroNF : null
+        numero_NF: req.body.numeroNF ? req.body.numeroNF : null,
+        validated: req.body.validated ? req.body.validated : false,
     })
         .then(async nf => {
             if (nf) {

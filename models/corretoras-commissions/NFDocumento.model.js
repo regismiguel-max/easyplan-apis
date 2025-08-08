@@ -18,6 +18,10 @@ module.exports = (sequelize, Sequelize) => {
         numero_NF: {
             type: Sequelize.STRING
         },
+        validated: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false
+        }
     });
 
     return NFDocumento;

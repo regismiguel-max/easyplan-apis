@@ -63,6 +63,27 @@ module.exports = (sequelize, Sequelize) => {
         codigoCommissionsDigitalSaude: {
             type: Sequelize.STRING
         },
+        valor_estorno: {
+            type: Sequelize.STRING
+        },
+        tipo: {
+            type: Sequelize.STRING
+        },
+        descricao: {
+            type: Sequelize.STRING
+        },
+        dataLancamento: {
+            type: Sequelize.STRING
+        },
+        codigoProduto: {
+            type: Sequelize.STRING
+        },
+        nomeProduto: {
+            type: Sequelize.STRING
+        },
+        vigencia: {
+            type: Sequelize.STRING
+        },
     });
 
     return Commission;
