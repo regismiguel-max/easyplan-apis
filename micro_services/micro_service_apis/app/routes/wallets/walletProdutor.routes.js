@@ -11,7 +11,7 @@ module.exports = (app) => {
     });
 
     app.get(
-        "/wallets", [authJwt.verifyToken],
+        "/wallets/produtor", [authJwt.verifyToken],
         controller.findAll
     );
 
