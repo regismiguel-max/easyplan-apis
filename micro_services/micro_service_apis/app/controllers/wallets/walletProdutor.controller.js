@@ -10,7 +10,7 @@ exports.findAll = (req, res) => {
     Wallets.findAll(
         {
             order: [
-                ['produtorNome', 'DESC']
+                ['produtorNome', 'ASC']
             ],
         }
     )
@@ -57,7 +57,7 @@ exports.findAllTransactions = (req, res) => {
 
 exports.findSearchTransactions = (req, res) => {
     const where = {};
-    if (req.body.produtorCPF) { where.produtorCPF = req.body.produtorCPF; };
+    if (req.body.document) { where.produtorCPF = req.body.document; };
     if (req.body.tipo) { where.tipo = req.body.tipo; };
     if (req.body.dataLancamento) {
         where.dataLancamento = req.body.dataLancamento;
@@ -65,8 +65,8 @@ exports.findSearchTransactions = (req, res) => {
     if (req.body.vigencia) {
         where.vigencia = req.body.vigencia;
     };
-    if (req.body.clienteNome) {
-        where.clienteNome = req.body.clienteNome;
+    if (req.body.nomeCliente) {
+        where.clienteNome = { [Op.like]: `%${req.body.nomeCliente}%` };
     };
 
     WalletsTransactions.findAll(

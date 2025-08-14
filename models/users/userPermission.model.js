@@ -100,6 +100,10 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.BOOLEAN,
             defaultValue: false,
         },
+        nfs: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false,
+        },
     });
 
     return UserPermissions;

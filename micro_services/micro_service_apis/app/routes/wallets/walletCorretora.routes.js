@@ -16,22 +16,12 @@ module.exports = (app) => {
     );
 
     app.get(
-        "/wallets/corretora/transactions/:produtorCPF", [authJwt.verifyToken],
+        "/wallets/transactions/corretora/:corretoraCNPJ", [authJwt.verifyToken],
         controller.findAllTransactions
     )
 
     app.post(
-        "/wallets/corretora/transactions/search", [authJwt.verifyToken],
+        "/wallets/transactions/corretora/search", [authJwt.verifyToken],
         controller.findSearchTransactions
-    )
-
-    app.get(
-        "/wallets/corretora/payments/:produtorCPF", [authJwt.verifyToken],
-        controller.findAllPayments
-    )
-
-    app.post(
-        "/wallets/corretora/payments/search", [authJwt.verifyToken],
-        controller.findSearchPayments
     )
 };

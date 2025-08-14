@@ -60,6 +60,7 @@ Regras:
 - As datas devem estar no formato "dd/mm/aaaa".
 - Os CNPJs e CPFs devem conter apenas números (sem ponto, traço ou barra).
 - A competência pode ser "dd/mm/aaaa" ou "mm/aaaa".
+- Se a competência vier com o mês por extenso (ex.: "Agosto/2025" ou "Agosto de 2025"), CONVERTA para "mm/aaaa" (ex.: "08/2025").
 
 Texto da nota:
 
@@ -166,6 +167,90 @@ async function validarComSubLote(campos, subLoteId) {
     };
 }
 
+// Remove acentos e normaliza para comparação
+function removerAcentos(str = '') {
+    return str.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+function mapMesParaNumero(nomeMesRaw = '') {
+    const s = removerAcentos(String(nomeMesRaw).trim().toLowerCase());
+    const mapa = {
+        jan: '01', janeiro: '01',
+        fev: '02', fevereiro: '02',
+        mar: '03', marco: '03', 'marco.': '03', 'mar.': '03',
+        abr: '04', abril: '04',
+        mai: '05', maio: '05',
+        jun: '06', junho: '06',
+        jul: '07', julho: '07',
+        ago: '08', agosto: '08',
+        set: '09', setembro: '09',
+        out: '10', outubro: '10',
+        nov: '11', novembro: '11',
+        dez: '12', dezembro: '12',
+    };
+
+    // tenta chave exata
+    if (mapa[s]) return mapa[s];
+
+    // tenta pelas 3 primeiras letras (ex.: "agost" -> "ago")
+    const chave3 = s.slice(0, 3);
+    if (mapa[chave3]) return mapa[chave3];
+
+    return null;
+}
+
+/**
+ * Normaliza a competência para "mm/aaaa".
+ * Aceita formatos:
+ * - "08/2025"
+ * - "8/2025"
+ * - "Agosto/2025"
+ * - "Agosto de 2025"
+ * - "2025-08" (converte para 08/2025)
+ * - "01/08/2025" (usa só mês/ano -> 08/2025)
+ */
+function normalizarCompetencia(valor) {
+    if (!valor) return valor;
+    let s = String(valor).trim();
+
+    // uniformiza separadores e remove "de"
+    s = s.replace(/-/g, '/').replace(/\s+de\s+/gi, ' ').replace(/\s+/g, ' ');
+
+    // 1) dd/mm/aaaa -> pega mm/aaaa
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+        const mm = String(m[2]).padStart(2, '0');
+        const aaaa = m[3];
+        return `${mm}/${aaaa}`;
+    }
+
+    // 2) mm/aaaa (ou m/aaaa) já numérico
+    m = s.match(/^(\d{1,2})\/(\d{4})$/);
+    if (m) {
+        const mm = String(m[1]).padStart(2, '0');
+        const aaaa = m[2];
+        return `${mm}/${aaaa}`;
+    }
+
+    // 3) "Agosto/2025" ou "Agosto 2025"
+    m = s.match(/^([A-Za-zçãâáéíóúõêô.]+)[\/\s]+(\d{4})$/i);
+    if (m) {
+        const mesNum = mapMesParaNumero(m[1]);
+        if (mesNum) return `${mesNum}/${m[2]}`;
+    }
+
+    // 4) "2025/08" ou "2025-08"
+    m = s.match(/^(\d{4})\/(\d{1,2})$/);
+    if (m) {
+        const mm = String(m[2]).padStart(2, '0');
+        const aaaa = m[1];
+        return `${mm}/${aaaa}`;
+    }
+
+    // Se nada bater, retorna original (deixa validação tratar)
+    return valor;
+}
+
 const uploadNotaController = async (req, res) => {
     const file = req.file;
     const { subLoteCommissionsId } = req.body;
@@ -194,6 +279,7 @@ const uploadNotaController = async (req, res) => {
         if (!camposBrutos) return res.status(422).json({ mensagem: 'Falha ao extrair dados da nota fiscal.' });
 
         const camposExtraidos = mapearCamposExtraidos(camposBrutos);
+        camposExtraidos.competencia = normalizarCompetencia(camposExtraidos.competencia);
         const resultado = await validarComSubLote(camposExtraidos, subLoteCommissionsId);
 
         if (resultado.valido) {
