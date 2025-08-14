@@ -94,6 +94,11 @@ Retorne os seguintes campos em formato JSON:
     }
 }
 
+function soDia(d) {
+    if (!(d instanceof Date) || isNaN(d)) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 async function validarComSubLote(campos, subLoteId) {
     const sublote = await SubLoteCommissions.findByPk(subLoteId);
 
@@ -118,6 +123,7 @@ async function validarComSubLote(campos, subLoteId) {
     }
 
     const criadoEm = new Date(sublote.createdAt);
+    const criadoEmDia = soDia(criadoEm);
     const camposComErro = [];
 
     const prestador = campos.prestadorCpfCnpj?.replace(/\D/g, '');
@@ -138,7 +144,8 @@ async function validarComSubLote(campos, subLoteId) {
     };
 
     const dataEmissao = parseDataOuCompetencia(campos.dataEmissao);
-    if (!dataEmissao || dataEmissao < criadoEm) camposComErro.push('dataEmissao');
+    const dataEmissaoDia = dataEmissao ? soDia(dataEmissao) : null;
+    if (!dataEmissaoDia || dataEmissaoDia < criadoEmDia) camposComErro.push('dataEmissao');
 
     const competencia = parseDataOuCompetencia(campos.competencia);
     const competenciaValida =
