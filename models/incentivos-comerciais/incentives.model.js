@@ -78,10 +78,14 @@ module.exports = (sequelize, Sequelize) => {
             }
         },
         status: {
-            type: Sequelize.STRING,
+            type: Sequelize.ENUM('Em breve', 'Em andamento', 'Encerrado'),
             allowNull: false,
-            defaultValue: 'parado'
-        }
+            defaultValue: 'Em breve'
+        },
+        resultado_desafio: {
+            type: Sequelize.ENUM('Atingiu', 'Não atingiu'),
+            allowNull: true
+        },
     });
 
     return Incentives;

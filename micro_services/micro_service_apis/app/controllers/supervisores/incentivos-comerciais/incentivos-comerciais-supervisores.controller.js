@@ -8,6 +8,8 @@ const { validateIncentivePayload } = require("./validators/incentive-validators"
 const corretoraModel = require("../../../../../../models/corretoras/corretora.model");
 const PlaniumPropostaService = require("./services/planium-propostas.service");
 
+const { digital: api } = require("../../../config/axios/axios.config");
+
 class IncentiveController {
 
     async save(req, res) {
@@ -36,6 +38,7 @@ class IncentiveController {
             });
         }
     }
+
     async getAll(req, res) {
         try {
             console.log('Entrou na controller');
@@ -63,6 +66,7 @@ class IncentiveController {
             });
         }
     }
+
     async getById(req, res) {
         try {
             // const user_id = req.query.user_id;
@@ -173,7 +177,7 @@ class IncentiveController {
 
         if (corretoras.length === 0) {
             return res
-            .status(404)
+            .status(200)
             .json({ message: "Nenhuma corretora encontrada com esse nome." });
         }
 
@@ -193,7 +197,22 @@ class IncentiveController {
 
         const apiPleniumService = new PlaniumPropostaService();
 
-        apiPleniumService.getPropostas(planiumPayload);
+        await apiPleniumService.getPropostas(planiumPayload);
+
+        const incentive = await db.incentives.findOne({
+            where: {id: planiumPayload.id},
+            include: [
+                {model: db.corretoras, as: 'corretora'},
+                {model: db.incentives_propostas, as: 'propostas'},
+                {model: db.incentives_results, as: 'result'}
+            ]
+        })
+
+        return res.status(201).json({
+            sucesso: true,
+            message: 'Atualize a página',
+            data: incentive
+        })
     }
 
     async getUltimaProposta(req, res) {
@@ -234,25 +253,30 @@ class IncentiveController {
     async getFaturaPaga(req, res) {
         const incentive_id = req.query.incentive_id;
 
-        console.log('Caiu no server e com o id certin: ', incentive_id);
+        // console.log('Caiu no server e com o id certin: ', incentive_id);
         //Pegar todos os CPF das vendas relacionadas ao Desafio em questão
         const propostasDB = await db.incentives_propostas.findAll({
             where: {incentive_id}
         });
 
-        console.log('Validar o retorno de propostas: ', propostasDB);
+        // console.log('Validar o retorno de propostas: ', propostasDB);
         
         const propostas = propostasDB.map(proposta => proposta.get({plain: true}))
 
         // Realizar a query no nosso banco Buscando o codigo_do_contrato na tabela de Beneficiário através do CPF
         let codigos_cpfs = [];
         for(let proposta of propostas){
-            const codigoDB = await db.automation_cliente_digital_beneficiario.findOne({
+            const codigoDB = await db.beneficiariosDigital.findOne({
                 where: {cpf: proposta.contratante_cpf},
                 attributes: ['codigo_do_contrato']
             });
 
-            const codigo = codigoDB.map(codigo => codigo.get({plain: true}))
+            if(!codigoDB){
+                console.log('Null');
+                
+                continue;
+            }
+            const codigo = codigoDB.get({plain: true});
 
             codigos_cpfs.push(
                 {
@@ -262,9 +286,81 @@ class IncentiveController {
             );
         }
 
-        console.log('Vejamos como ficou o final de tudo: ', codigos_cpfs);
+        // console.log('Vejamos como ficou o final de tudo: ', codigos_cpfs);
         
+        let beneficiariosPagou = []
         // Realizar a query no Digital Saúde por Fatura paga através do codigo_do_contrato do Beneficiário
+        for(let codigo_cpf of codigos_cpfs){
+            const codigo = codigo_cpf.codigo.codigo_do_contrato;
+
+            try {
+                const response = await api.get(`/fatura/procurarLiquidadasPorContrato?codigoContrato=${codigo}`);
+
+                console.log('Vamos vê a resposta da Digital Saúde: ', response.data);
+                // console.log('Vamos vê a resposta da Digital Saúde: ', response.data[0]);
+                // console.log('Vejamos os beneficiarios: ', response.data[0]?.beneficiario);
+                // console.log('Vejamos o status: ', response.data[0]?.statusFatura);
+    
+                if(response?.data?.length < 0) {
+                    continue
+                }
+    
+                beneficiariosPagou.push(
+                    {
+                        pagou: true,
+                        codigo: codigo,
+                        dataPagamento: response.data[0].dataPagamento,
+                        contratante_cpf: codigo_cpf.cpf
+                    }
+                )
+            } catch (error) {
+                if (error.response?.status === 400) {
+                    console.error(`Erro 400 para o código do contrato ${codigo}: Requisição inválida.`);
+                    continue; // Continua para o próximo item do loop
+                }
+
+                console.error(`Ocorreu um erro na requisição para o código ${codigo}:`, error);
+            }
+    
+        }
+
+        // Persistir as informações necessárias no banco de propostas
+        // console.log('Veja a lista de quem pagou: ', beneficiariosPagou);
+        let responseFrontEnd = []
+        for(let beneficiarioPagou of beneficiariosPagou){
+            const [response] = await db.incentives_propostas.update(
+                {
+                    pagou: beneficiarioPagou.pagou,
+                    codigo_do_contrato: beneficiarioPagou.codigo,
+                    data_pagamento: beneficiarioPagou.dataPagamento
+                },
+                {
+                    where: {contratante_cpf: beneficiarioPagou.contratante_cpf}
+                }
+            );
+
+            response > 0 ? responseFrontEnd.push('atualizado') : console.log('Error. Por algum motivo nenhuma linha foi alterada');
+        }
+
+        if(beneficiariosPagou.length !== responseFrontEnd.length){
+            console.log('Erro de atualização');   
+        }
+
+        const incentive = await db.incentives.findOne({
+            where: {id: incentive_id},
+            include: [
+                {model: db.corretoras, as: 'corretora'},
+                {model: db.incentives_propostas, as: 'propostas'},
+                {model: db.incentives_results, as: 'result'}
+            ]
+        })
+
+        return res.status(201).json({
+            sucesso: true,
+            message: "Operação concluida com sucesso - atualize a página para trazer os novos dados",
+            data: incentive,
+        });
+        
     }
 }
 

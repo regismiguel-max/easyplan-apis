@@ -22,7 +22,20 @@ class PlaniumPropostaService {
         
         const novasPropostas = await this._processarPropostas(propostasPlanium, planiumPayload);
 
-        await this._atualizarResultados(planiumPayload.id, novasPropostas, propostasPlanium);
+        let beneficiarios = 0;
+
+        if(novasPropostas){
+            beneficiarios = novasPropostas.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
+        } else {
+            beneficiarios = propostasPlanium.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
+        }
+
+
+        console.log('Veja os beneficiarios: ', beneficiarios);
+        
+        await this._atualizarResultados(planiumPayload.id, novasPropostas, propostasPlanium, beneficiarios);
+
+        return
     }
 
     // Gera intervalo de dias
@@ -34,7 +47,7 @@ class PlaniumPropostaService {
         console.log('Hoje: ', hoje);
         console.log('Final do Desafio: ', fim);
 
-        const limit = hoje >= fim ? fim : hoje;
+        const limit = hoje > fim ? fim : hoje;
 
         const dias = [];
         for (let data = new Date(inicio); data <= limit; data.setDate(data.getDate() + 1)) {
@@ -59,18 +72,20 @@ class PlaniumPropostaService {
             };
 
             const response = await api.post("proposta/consulta/v1", bodyRequest);
-            console.log('Retorno plenium: ', response.data.propostas);
+            // console.log('Retorno plenium: ', response.data.propostas);
+            console.log('Retorno plenium: ', response.data.propostas.length);
 
             // Iterar sobre cada proposta e filtrar proposta que seja da mesma corretora, e se o status dessa proposta é diferente de cancelada.
             const propostasDoDia = await response.data.propostas.filter(
                 (proposta) => {
-                    return proposta.status !== 'cancelada';
+                    return proposta.status !== 'cancelada' && proposta.status !== 'retificada';
                 }
             )
+            console.log('proposta dia: ', propostasDoDia);
 
-            propostasPlanium.push(...propostasDoDia)
+            propostasPlanium.push(...propostasDoDia);
         }
-
+        
         return propostasPlanium;
     }
 
@@ -86,15 +101,21 @@ class PlaniumPropostaService {
             });
 
             if (existing) {
-                await existing.update({ status: propostaObj.status });
+                console.log('Incentivo Proposta antes da manipulação: ', existing);
+                
+                const incentive_proposta = existing.get({plain: true});
+
+                console.log('Incentivo Proposta depois da manipulação: ', incentive_proposta);
+                
+                if(propostaObj.status !== incentive_proposta.status){
+                    await existing.update({ status: propostaObj.status });
+                }
             } else {
                 await db.incentives_propostas.create(propostaObj);
-            }
-
-            if (this._ehNovaProposta(proposta, planiumPayload.ultimaPropostaCriada)) {
                 novasPropostas.push(proposta);
             }
         }
+
         return novasPropostas;
     }
 
@@ -115,29 +136,32 @@ class PlaniumPropostaService {
             operadora: proposta.metadados?.operadora_nome ?? null,
             incentive_id: incentiveId,
             propostaID: proposta.propostaID.toString(),
-            contratante_cpf: proposta.contratante_cpf
+            contratante_cpf: proposta.contratante_cpf,
+            beneficiarios: proposta.beneficiarios
         };
     }
 
-    _ehNovaProposta(proposta, ultimaPropostaCriada) {
-        if (!ultimaPropostaCriada) return false;
-        return new Date(proposta.datacriacao) > new Date(ultimaPropostaCriada);
-    }
-
-    async _atualizarResultados(incentiveId, novasPropostas, propostasPlanium) {
-        const existing = await db.incentives_results.findOne({
+    async _atualizarResultados(incentiveId, novasPropostas, propostasPlanium, beneficiarios) {
+        const existingResult = await db.incentives_results.findOne({
             where: { incentive_id: incentiveId },
-            attributes: ["total_sales"]
+            attributes: ["total_sales", "total_lifes"]
         });
 
-        if (existing) {
-            let total_sales = Number(existing.dataValues.total_sales) || 0;
-            total_sales += novasPropostas.length;
-            await db.incentives_results.update({ total_sales }, { where: { incentive_id: incentiveId } });
+        if (existingResult) {
+            if (novasPropostas) {
+                let total_sales = Number(existingResult.dataValues.total_sales) || 0;
+                total_sales += novasPropostas.length;
+     
+                let total_lifes = Number(existingResult.dataValues.total_lifes) || 0;
+                total_lifes += beneficiarios;
+                 
+                await db.incentives_results.update({ total_sales, total_lifes }, { where: { incentive_id: incentiveId } });
+            }
         } else {
             await db.incentives_results.create({
                 incentive_id: incentiveId,
-                total_sales: propostasPlanium.length
+                total_sales: propostasPlanium.length,
+                total_lifes: beneficiarios
             });
         }
     }

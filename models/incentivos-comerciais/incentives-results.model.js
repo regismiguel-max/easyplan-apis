@@ -11,9 +11,9 @@ module.exports = (sequelize, Sequelize) => {
             onUpdate: 'CASCADE'
         },
         total_sales: {
-            type: Sequelize.STRING,
+            type: Sequelize.INTEGER,
             allowNull: false,
-            defaultValue: '0'
+            defaultValue: 0
         },
         implanted_total_sales: {
             type: Sequelize.STRING,
@@ -27,7 +27,12 @@ module.exports = (sequelize, Sequelize) => {
         calculeted_at: {
             type: Sequelize.DATE,
             defaultValue: Sequelize.NOW
-        }
+        },
+        total_lifes: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            defaultValue: 0
+        },
     });
 
     return IncentiveResult

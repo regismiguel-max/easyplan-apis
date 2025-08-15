@@ -70,7 +70,7 @@ require('./supervisores/incentivos/incentivos.routes.js')(app);
 require('./whatsapp/whatsappcorretora.routes')(app);
 
 require('./wallets/walletProdutor.routes')(app);
-require('./wallets/walletCorretora.routes')(app);
+// require('./wallets/walletCorretora.routes')(app);
 
 require('./produtores/produtores.routes')(app);
 require('./produtores/contato.routes')(app);

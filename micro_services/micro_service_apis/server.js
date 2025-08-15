@@ -8,6 +8,8 @@ const path = require('path');
 const moment = require("moment");
 require('dotenv').config({ path: path.resolve(__dirname, './.env') });
 
+const cronIncentiveStatus = require('./app/controllers/supervisores/incentivos-comerciais/cron/incentive-status.cron');
+
 const loadSSL = require('../../sslcert/loadSSL');
 const credentials = loadSSL();
 

@@ -60,6 +60,22 @@ module.exports = (sequelize, Sequelize) => {
         },
         propostaID: {
             type: Sequelize.STRING
+        },
+        pagou: {
+            type: Sequelize.BOOLEAN,
+            allowNull: true
+        },
+        codigo_do_contrato: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
+        data_pagamento: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
+        beneficiarios: {
+            type: Sequelize.INTEGER,
+            allowNull: true
         }
     });
 
