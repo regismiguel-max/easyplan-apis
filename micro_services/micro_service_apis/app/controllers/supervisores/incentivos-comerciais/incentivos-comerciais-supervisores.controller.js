@@ -46,11 +46,19 @@ class IncentiveController {
             
             if (!user_id) return res.status(400).json({ sucesso: false, message: 'Não foi encontrado nenhum user_id nos parâmetros da requisição' });
             console.log('Passou na validação');
+
+            let incentives;
+            if(user_id === 'admin'){
+                incentives = await db.incentives.findAll({
+                    include: {model: db.corretoras, as: 'corretora'}
+                })
+            } else {
+                incentives = await db.incentives.findAll({
+                    where: {user_id},
+                    include: {model: db.corretoras, as: 'corretora'}
+                })
+            }
             
-            const incentives = await db.incentives.findAll({
-                where: {user_id},
-                include: {model: db.corretoras, as: 'corretora'}
-            })
             
             console.log('Incentivos Encontrados: ', incentives);
             
