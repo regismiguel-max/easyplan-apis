@@ -36,36 +36,43 @@ const VISION_DPI = parseInt(process.env.NF_VISION_DPI || '0', 10);
 /* ========================= Helpers ========================= */
 const onlyDigits = (s = '') => String(s).replace(/\D/g, '');
 
-/** Normaliza dinheiro com suporte a pt-BR e en-US.
- *  Exemplos:
- *   "R$ 1.234,56" -> 1234.56
- *   "1,234.56"    -> 1234.56
- *   "931.49"      -> 931.49
- */
+/** Normaliza dinheiro com suporte a pt-BR e en-US. */
 function normalizeMoneySmart(input) {
     if (input === null || input === undefined) return null;
+
+    if (typeof input === 'number' && Number.isFinite(input)) {
+        return Number(input.toFixed(2));
+    }
+
     let s = String(input)
-        .replace(/\u00A0/g, ' ')        // NBSP
-        .replace(/[Rr]\$\s?/g, '')      // R$
+        .replace(/\u00A0/g, ' ')
+        .replace(/[Rr]\$\s?/g, '')
         .trim()
-        .replace(/\s+/g, '');           // remove espaços avulsos
+        .replace(/\s+/g, '');
 
     const hasDot = s.includes('.');
     const hasComma = s.includes(',');
 
-    if (hasDot && hasComma) {
-        // decide pelo último separador: se a vírgula veio por último, é decimal pt-BR
+    const ptPattern = /^\d{1,3}(?:\.\d{3})+(?:,\d{2})$/;  // 1.234,56
+    const usPattern = /^\d{1,3}(?:,\d{3})+(?:\.\d{2})$/;  // 1,234.56
+
+    if (ptPattern.test(s)) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else if (usPattern.test(s)) {
+        s = s.replace(/,/g, '');
+    } else if (hasDot && hasComma) {
         if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
-            s = s.replace(/\./g, '').replace(',', '.'); // "1.234,56" -> "1234.56"
+            s = s.replace(/\./g, '').replace(',', '.');
         } else {
-            s = s.replace(/,/g, ''); // "1,234.56" -> "1234.56"
+            s = s.replace(/,/g, '');
         }
-    } else if (hasComma) {
-        // só vírgula: se termina com ,dd é decimal; senão, é milhar
-        s = /,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, '');
-    } else if (hasDot) {
-        // só ponto: se termina com .dd ok; senão, remove milhar
-        if (!/\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+    } else if (hasComma && !hasDot) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else if (hasDot && !hasComma) {
+        const dotCount = (s.match(/\./g) || []).length;
+        if (dotCount > 1 && !/\.\d{1,2}$/.test(s)) {
+            s = s.replace(/\./g, '');
+        }
     }
 
     const n = Number(s);
@@ -79,6 +86,28 @@ function parseMoneyPtBR(line) {
     const n = m[1].replace(/\./g, '').replace(',', '.');
     const f = Number(n);
     return Number.isFinite(f) ? f.toFixed(2) : null;
+}
+
+/** Tenta dinheiro em pt-BR ou en-US em qualquer linha curta. */
+function parseMoneyAny(line) {
+    if (!line) return null;
+    const s = String(line);
+
+    const pt = s.match(/(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/);
+    if (pt) return parseMoneyPtBR(s);
+
+    const us = s.match(/(?:R\$\s*)?(\d{1,3}(?:,\d{3})+\.\d{2})(?!\d)/);
+    if (us) {
+        const n = Number(us[1].replace(/,/g, ''));
+        return Number.isFinite(n) ? n.toFixed(2) : null;
+    }
+
+    const simple = s.match(/(?:R\$\s*)?(\d+\.\d{2})(?!\d)/);
+    if (simple) {
+        const n = Number(simple[1]);
+        return Number.isFinite(n) ? n.toFixed(2) : null;
+    }
+    return null;
 }
 
 function isValidCPF(cpf) {
@@ -131,7 +160,7 @@ function mapMesParaNumero(nomeMesRaw = '') {
     return mapa[k] || null;
 }
 
-/** Normaliza competência para "mm/aaaa" (aceita "Agosto/2025", "01/08/2025", "2025/08", etc.) */
+/** Normaliza competência para "mm/aaaa". */
 function normalizarCompetencia(valor) {
     if (!valor) return valor;
     let s = String(valor).trim().replace(/-/g, '/').replace(/\s+de\s+/gi, ' ').replace(/\s+/g, ' ');
@@ -157,13 +186,36 @@ function parseDataOuCompetencia(valor) {
 }
 function soDia(d) { if (!(d instanceof Date) || isNaN(d)) return null; return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
+/* ---------- OCR helpers para CNPJ/CPF ---------- */
+function normalizeOcrCharsToDigits(raw = '') {
+    // Corrige confusões comuns em OCR
+    return String(raw)
+        .replace(/[OoDd]/g, '0')
+        .replace(/[Il]/g, '1')
+        .replace(/Z/g, '2')
+        .replace(/S/g, '5')
+        .replace(/B/g, '8');
+}
+function hamming14(a, b) {
+    if (!a || !b || a.length !== 14 || b.length !== 14) return Infinity;
+    let d = 0; for (let i = 0; i < 14; i++) if (a[i] !== b[i]) d++;
+    return d;
+}
+
 /* ============== Pós-processo a partir das "fontes" (fallback visão) ============== */
 function tryFixValorFromFontes(campos) {
     if (campos.valorTotal) return campos;
     const linhas = campos._fontes?.linhasRelevantes || [];
     for (const lin of linhas) {
-        const v = parseMoneyPtBR(lin);
-        if (v) { campos.valorTotal = v; campos._valorBrutoFonte = 'fontes'; break; }
+        const v = parseMoneyAny(lin) || parseMoneyPtBR(lin);
+        if (v) {
+            const n = normalizeMoneySmart(v);
+            if (Number.isFinite(n)) {
+                campos.valorTotal = n.toFixed(2);
+                campos._valorBrutoFonte = 'fontes';
+                break;
+            }
+        }
     }
     return campos;
 }
@@ -171,14 +223,44 @@ function tryFixValorFromFontes(campos) {
 function tryFixDocFromFontes(docAtual, linhas) {
     if (docAtual && (isValidCNPJ(docAtual) || isValidCPF(docAtual))) return docAtual;
     for (const lin of (linhas || [])) {
+        if (/\binscr[ií]c[aã]o|\bim\b|\bie\b|estadual|municipal/i.test(lin)) continue;
         const m = lin.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14}|\d{11})/);
         if (!m) continue;
-        let d = m[1].replace(/\D/g, '');
-        d = d.replace(/[Oo]/g, '0').replace(/[Il]/g, '1'); // swaps comuns
+        let d = normalizeOcrCharsToDigits(m[1]).replace(/\D/g, '');
+        d = d.replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
         const ok = d.length === 14 ? isValidCNPJ(d) : d.length === 11 ? isValidCPF(d) : false;
         if (ok) return d;
     }
     return docAtual;
+}
+
+function tryFixDocFromFontesByRole(docAtual, fontes, role /* 'prestador' | 'tomador' */) {
+    const linhas = fontes?.linhasRelevantes || [];
+    if (!linhas.length) return docAtual;
+
+    const reBan = /\binscr[ií]c[aã]o|\bim\b|\bie\b|estadual|municipal/i;
+    const reDocHint = /(cnpj|cpf)/i;
+
+    for (const lin of linhas) {
+        if (!reDocHint.test(lin)) continue;
+        if (reBan.test(lin)) continue;
+        const m = lin.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14}|\d{11})/);
+        if (!m) continue;
+        let d = normalizeOcrCharsToDigits(m[1]).replace(/\D/g, '');
+        d = d.replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
+        const ok = d.length === 14 ? isValidCNPJ(d) : d.length === 11 ? isValidCPF(d) : false;
+        if (ok) return d;
+    }
+    for (const lin of linhas) {
+        if (reBan.test(lin)) continue;
+        const m = lin.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14}|\d{11})/);
+        if (!m) continue;
+        let d = normalizeOcrCharsToDigits(m[1]).replace(/\D/g, '');
+        d = d.replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
+        const ok = d.length === 14 ? isValidCNPJ(d) : d.length === 11 ? isValidCPF(d) : false;
+        if (ok) return d;
+    }
+    return tryFixDocFromFontes(docAtual, linhas);
 }
 
 function tryFixDataFromFontes(campos) {
@@ -191,14 +273,170 @@ function tryFixDataFromFontes(campos) {
     return campos;
 }
 
+/* ====== Fuzzy a partir de fontes + esperados (corrige OCR como 086->586) ====== */
+function fuzzyAssignDocs(campos, fontes, prestadorEsperado, tomadorEsperado) {
+    const P = onlyDigits(prestadorEsperado || '');
+    const T = onlyDigits(tomadorEsperado || '');
+    const linhas = fontes?.linhasRelevantes || [];
+
+    // Coleta candidatos (mesmo se checksum inválido)
+    const cand = [];
+    for (const lin of linhas) {
+        if (/\binscr[ií]c[aã]o|\bim\b|\bie\b|estadual|municipal/i.test(lin)) continue;
+        const norm = normalizeOcrCharsToDigits(lin);
+        const m = norm.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14})/g);
+        if (!m) continue;
+        for (const raw of m) {
+            const d = onlyDigits(raw);
+            if ((d.length === 14 || d.length === 11) && !cand.includes(d)) cand.push(d);
+        }
+    }
+
+    let p = onlyDigits(campos.prestadorCpfCnpj || '');
+    let t = onlyDigits(campos.tomadorCpfCnpj || '');
+
+    // Se p==t ou tomador vazio, tenta “puxar” T dos candidatos por proximidade
+    if ((!t || p === t) && T && cand.length) {
+        if (cand.includes(T)) {
+            t = T;
+            campos._autocorrecao = (campos._autocorrecao || '') + '|tomador_exact_fontes';
+        } else {
+            // escolhe candidato mais próximo
+            let best = null, bestD = Infinity;
+            for (const c of cand) {
+                if (c.length !== 14) continue;
+                const d = hamming14(c, T);
+                if (d < bestD) { bestD = d; best = c; }
+            }
+            if (best !== null && bestD <= 2) { // tolera até 2 diffs
+                t = T; // corrige para o esperado (há evidência de near-match)
+                campos._autocorrecao = (campos._autocorrecao || '') + `|tomador_fuzzy(d=${bestD})`;
+            }
+        }
+    }
+
+    // Se prestador vazio/igual ao tomador, tenta “puxar” P
+    if ((!p || p === t) && P && cand.length) {
+        if (cand.includes(P)) {
+            p = P;
+            campos._autocorrecao = (campos._autocorrecao || '') + '|prestador_exact_fontes';
+        } else {
+            let best = null, bestD = Infinity;
+            for (const c of cand) {
+                if (c.length !== 14) continue;
+                const d = hamming14(c, P);
+                if (d < bestD) { bestD = d; best = c; }
+            }
+            if (best !== null && bestD <= 2) {
+                p = P;
+                campos._autocorrecao = (campos._autocorrecao || '') + `|prestador_fuzzy(d=${bestD})`;
+            }
+        }
+    }
+
+    if (p) campos.prestadorCpfCnpj = p;
+    if (t) campos.tomadorCpfCnpj = t;
+    return campos;
+}
+
+/* ====== FALLBACKS DETERMINÍSTICOS NO TEXTO ====== */
+function extrairValorBrutoDeterministico(texto) {
+    if (!texto) return null;
+
+    const t = removerAcentos(String(texto))
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+
+    const rotulos = [
+        'valor total da nota',
+        'valor total dos servicos',
+        'valor dos servicos',
+        'total dos servicos',
+        'valor bruto'
+    ];
+
+    const ban = /(liquido|retenc|deduc|iss|inss|irrf|pis|cofins|csll)/;
+
+    for (const rot of rotulos) {
+        const idx = t.indexOf(rot);
+        if (idx < 0) continue;
+
+        const janela = t.slice(idx, idx + 140);
+        if (ban.test(janela)) continue;
+
+        const m = janela.match(/(?:^|[^\d])(r\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/i);
+        if (m && m[2]) {
+            const val = m[2].replace(/\./g, '').replace(',', '.');
+            const n = Number(val);
+            if (Number.isFinite(n)) return n.toFixed(2);
+        }
+    }
+
+    const m2 = t.match(/total[^0-9]{0,40}(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/i);
+    if (m2) {
+        const val = m2[1].replace(/\./g, '').replace(',', '.');
+        const n = Number(val);
+        if (Number.isFinite(n)) return n.toFixed(2);
+    }
+
+    return null;
+}
+
+function extrairDataEmissaoDeterministica(texto) {
+    if (!texto) return null;
+
+    const t = removerAcentos(String(texto))
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+
+    const padroes = [
+        /data\s*(?:\/|e)?\s*hora\s*(?:de|da)?\s*emiss[aã]o[^0-9]{0,40}((?:\d{1,2}\/){2}\d{4})/i,
+        /data\s*(?:de)?\s*emiss[aã]o[^0-9]{0,40}((?:\d{1,2}\/){2}\d{4})/i,
+        /compet[ea]ncia\s*\/\s*emiss[aã]o[^0-9]{0,40}((?:\d{1,2}\/){2}\d{4})/i,
+        /emiss[aã]o[^0-9]{0,40}((?:\d{1,2}\/){2}\d{4})/i
+    ];
+
+    for (const re of padroes) {
+        const m = t.match(re);
+        if (m && m[1]) {
+            const [d, mth, y] = m[1].split('/').map(s => s.padStart(2, '0'));
+            return `${d}/${mth}/${y}`;
+        }
+    }
+
+    const idx = t.indexOf('emissa');
+    if (idx >= 0) {
+        const janela = t.slice(idx, idx + 120);
+        const m = janela.match(/(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])\/\d{4}/);
+        if (m) {
+            const [d, mth, y] = m[0].split('/').map(s => s.padStart(2, '0'));
+            return `${d}/${mth}/${y}`;
+        }
+    }
+
+    const idxData = t.indexOf('data');
+    if (idxData >= 0) {
+        const janela = t.slice(idxData, idxData + 120);
+        const m = janela.match(/(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])\/\d{4}/);
+        if (m) {
+            const [d, mth, y] = m[0].split('/').map(s => s.padStart(2, '0'));
+            return `${d}/${mth}/${y}`;
+        }
+    }
+
+    return null;
+}
+
 /* ========================= IA (TEXTO) ========================= */
 async function extrairCamposComGPT(texto) {
     const prompt = `
 Você é um extrator de dados de NFS-e (Brasil). Leia o TEXTO e retorne SOMENTE JSON válido.
 
 Conceitos obrigatórios (NÃO confundir):
-- PRESTADOR: quem EMITE a NFS-e (seção "Dados do Prestador de Serviço" ou equivalente).
-- TOMADOR: quem CONTRATA os serviços (seção "Dados do Tomador de Serviços" ou equivalente).
+- PRESTADOR: quem EMITE a NFS-e (seção "Dados do Prestador de Serviço" ou equivalente). Em alguns municípios aparece como "EMITENTE" ou "EMITENTE DA NFS-e": trate **EMITENTE = PRESTADOR**.
+- TOMADOR: quem CONTRATA os serviços (seção "Dados do Tomador de Serviços" ou equivalente). Também pode aparecer como "DESTINATÁRIO" ou "CONTRATANTE".
 
 Regras de formatação:
 - "numeroNota": somente dígitos.
@@ -209,15 +447,15 @@ Regras de formatação:
 - Se a competência vier com mês por extenso (ex.: "Agosto/2025" ou "Agosto de 2025"), CONVERTER para "mm/aaaa".
 
 Regras para prestador/tomador:
-1) Se existir seção explícita **"Dados do Prestador de Serviço"**, o CNPJ/CPF dela vai para "prestadorCPF/CNPJ".
-2) Se existir seção explícita **"Dados do Tomador de Serviços"**, o CNPJ/CPF dela vai para "tomadorCPF/CNPJ".
-3) Se só uma das seções existir, use o contexto textual mais próximo ("Prestador" para prestador; "Tomador" para tomador).
+1) Se existir seção explícita **"Dados do Prestador de Serviço"** ou **"EMITENTE"**, o CNPJ/CPF DELA vai para "prestadorCPF/CNPJ".
+2) Se existir seção explícita **"Dados do Tomador de Serviços"** (ou "DESTINATÁRIO"/"CONTRATANTE"), o CNPJ/CPF DELA vai para "tomadorCPF/CNPJ".
+3) NÃO usar **Inscrição Municipal/Estadual (IM/IE)** como documento; apenas CNPJ/CPF (11/14 dígitos).
 4) NÃO inverter quando ambas seções existirem.
 
 Além dos campos, inclua um objeto "fontes" com:
 - "prestadorSecao": nome da seção/linha base usada
 - "tomadorSecao": nome da seção/linha base usada
-- "linhasRelevantes": até 3 linhas curtas
+- "linhasRelevantes": até 3 linhas curtas, priorizando as linhas que contêm "CNPJ" ou "CPF" e o valor total.
 
 Estrutura de saída (retorne SOMENTE isso):
 {
@@ -237,8 +475,7 @@ Estrutura de saída (retorne SOMENTE isso):
 TEXTO:
 """
 ${texto}
-"`
-        .trim();
+"`.trim();
 
     try {
         const completion = await openai.chat.completions.create({
@@ -318,26 +555,30 @@ async function extrairCamposComVisionFromPngs(pngPaths) {
                 `Você é um extrator de dados de NFS-e (Brasil). Analise AS IMAGENS e retorne SOMENTE JSON válido.
 
 Conceitos (NÃO confundir):
-- PRESTADOR = quem EMITE (seção "Dados do Prestador de Serviço").
-- TOMADOR   = quem CONTRATA (seção "Dados do Tomador de Serviços").
+- PRESTADOR = quem EMITE (seção "Dados do Prestador de Serviço"). Em alguns municípios aparece como "EMITENTE" ou "EMITENTE DA NFS-e": trate **EMITENTE = PRESTADOR**.
+- TOMADOR   = quem CONTRATA (seção "Dados do Tomador de Serviços", "DESTINATÁRIO" ou "CONTRATANTE").
 
 Regras:
 - "numeroNota": somente dígitos (NÃO usar RPS/Série/Código de Verificação).
 - "valorTotal": BRUTO (Valor dos Serviços / Valor Total dos Serviços / Total dos Serviços). Nunca líquido/retido/deduções/ISS/INSS/IRRF/PIS/COFINS/CSLL.
 - Datas: "dd/mm/aaaa".
-- CNPJ/CPF: somente dígitos.
+- CNPJ/CPF: somente dígitos (11 ou 14).
 - "competencia": "dd/mm/aaaa" OU "mm/aaaa". Se vier por extenso ("Agosto/2025"), CONVERTER para "mm/aaaa".
 - SEMPRE preencha todas as chaves. Se não achar, use "".
+
+ATENÇÃO (obrigatório para documentos):
+- NÃO confundir CNPJ/CPF com **Inscrição Municipal/Estadual** (IM/IE). IGNORE qualquer número rotulado como "Inscrição", "Inscrição Municipal", "Inscrição Estadual", "IM" ou "IE".
+- Extraia o CNPJ/CPF **da linha que contenha “CNPJ” ou “CPF”** dentro da seção correspondente. Se ambos aparecerem, use **CNPJ**.
+- Se houver “CNPJ/CPF: xxx”, use esse valor, e não números em outras linhas próximas.
 
 Inclua "fontes" com:
 - "prestadorSecao"
 - "tomadorSecao"
-- "linhasRelevantes": até 3 linhas curtas (ex.: "Vl. Total dos Serviços R$ 931,49", "CPF / CNPJ : 27.252.086/0001-04").`
+- "linhasRelevantes": até 3 linhas curtas, priorizando as **linhas utilizadas** (ex.: "CNPJ/CPF: 27.252.086/0001-04", "Vl. Total dos Serviços R$ 931,49").`
         },
         ...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'high' } }))
     ];
 
-    // Tenta Structured Outputs; se indisponível, cai para json_object
     const schema = {
         name: "nfse_extracao",
         strict: true,
@@ -426,6 +667,39 @@ function autoCorrigirInversaoPorEsperado(campos, prestadorEsperado, tomadorEsper
     return campos;
 }
 
+/* ====== Reconciliar quando IA retornou docs iguais (usa fontes & esperados) ====== */
+function reconciliarDocsSeIguais(campos, fontes, prestadorEsperado, tomadorEsperado) {
+    const p = onlyDigits(campos.prestadorCpfCnpj);
+    const t = onlyDigits(campos.tomadorCpfCnpj);
+    if (p && t && p !== t) return campos;
+
+    const linhas = fontes?.linhasRelevantes || [];
+    const docs = [];
+    for (const lin of linhas) {
+        if (/\binscr[ií]c[aã]o|\bim\b|\bie\b|estadual|municipal/i.test(lin)) continue;
+        const m = normalizeOcrCharsToDigits(lin).match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14}|\d{11})/g);
+        if (m) {
+            for (const raw of m) {
+                const d = onlyDigits(raw);
+                const ok = (d.length === 14 && isValidCNPJ(d)) || (d.length === 11 && isValidCPF(d));
+                if (ok && !docs.includes(d)) docs.push(d);
+            }
+        }
+    }
+
+    const P = onlyDigits(prestadorEsperado || '');
+    const T = onlyDigits(tomadorEsperado || '');
+
+    if (docs.length >= 2) {
+        if (docs.includes(P) && docs.includes(T)) {
+            campos.prestadorCpfCnpj = P;
+            campos.tomadorCpfCnpj = T;
+            campos._autocorrecao = (campos._autocorrecao || '') + '|reconc_docs_fontes';
+        }
+    }
+    return campos;
+}
+
 /* ========================= Validação final ========================= */
 async function validarComSubLote(campos, subLoteId) {
     const sublote = await SubLoteCommissions.findByPk(subLoteId);
@@ -444,7 +718,6 @@ async function validarComSubLote(campos, subLoteId) {
     const tomador = onlyDigits(campos.tomadorCpfCnpj);
     const tomadorEsperado = onlyDigits(empresa?.cnpj);
 
-    // >>>>>> USO DA normalizeMoneySmart <<<<<<
     const valorExtraido = normalizeMoneySmart(campos.valorTotal);
     const valorEsperado = normalizeMoneySmart(sublote.total_provisionado);
 
@@ -456,12 +729,10 @@ async function validarComSubLote(campos, subLoteId) {
         tomadorCpfCnpj: tomadorEsperado
     };
 
-    // Emissão: ignora hora
     const dataEmissao = parseDataOuCompetencia(campos.dataEmissao);
     const dataEmissaoDia = dataEmissao ? soDia(dataEmissao) : null;
     if (!dataEmissaoDia || dataEmissaoDia < criadoEmDia) camposComErro.push('dataEmissao');
 
-    // Competência: mês/ano >= mês/ano do criadoEm
     const competencia = parseDataOuCompetencia(campos.competencia);
     const competenciaValida =
         competencia &&
@@ -511,7 +782,31 @@ const uploadNotaController = async (req, res) => {
             if (!camposBrutos) return res.status(422).json({ sucesso: false, mensagem: 'Falha ao extrair dados da nota fiscal.' });
 
             let camposExtraidos = mapearCamposExtraidos(camposBrutos);
+
+            // Valor: preferir determinístico; se não achar, normaliza o que vier da IA
+            const vDet = extrairValorBrutoDeterministico(texto);
+            if (vDet) {
+                camposExtraidos.valorTotal = vDet;
+                camposExtraidos._valorBrutoFonte = 'deterministico';
+            } else {
+                if (camposExtraidos.valorTotal) {
+                    const n = normalizeMoneySmart(camposExtraidos.valorTotal);
+                    if (Number.isFinite(n)) camposExtraidos.valorTotal = n.toFixed(2);
+                }
+                camposExtraidos._valorBrutoFonte = 'gpt';
+            }
+
+            // Data emissão determinística (se a IA não trouxe)
+            if (!camposExtraidos.dataEmissao) {
+                const d = extrairDataEmissaoDeterministica(texto);
+                if (d) camposExtraidos.dataEmissao = d;
+            }
+
             camposExtraidos.competencia = normalizarCompetencia(camposExtraidos.competencia);
+
+            // Se prestador=tomador, tenta separar usando fontes+esperados com fuzzy
+            camposExtraidos = fuzzyAssignDocs(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
+            camposExtraidos = reconciliarDocsSeIguais(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
 
             const antes = { prestador: camposExtraidos.prestadorCpfCnpj, tomador: camposExtraidos.tomadorCpfCnpj };
             camposExtraidos = autoCorrigirInversaoPorEsperado(camposExtraidos, prestadorEsperado, tomadorEsperado);
@@ -547,10 +842,14 @@ const uploadNotaController = async (req, res) => {
             // Reparo a partir das fontes (valor/doc/data)
             camposExtraidos = tryFixValorFromFontes(camposExtraidos);
             if (camposExtraidos._fontes?.linhasRelevantes?.length) {
-                camposExtraidos.prestadorCpfCnpj = tryFixDocFromFontes(camposExtraidos.prestadorCpfCnpj, camposExtraidos._fontes.linhasRelevantes);
-                camposExtraidos.tomadorCpfCnpj = tryFixDocFromFontes(camposExtraidos.tomadorCpfCnpj, camposExtraidos._fontes.linhasRelevantes);
+                camposExtraidos.prestadorCpfCnpj = tryFixDocFromFontesByRole(camposExtraidos.prestadorCpfCnpj, camposExtraidos._fontes, 'prestador');
+                camposExtraidos.tomadorCpfCnpj = tryFixDocFromFontesByRole(camposExtraidos.tomadorCpfCnpj, camposExtraidos._fontes, 'tomador');
                 camposExtraidos = tryFixDataFromFontes(camposExtraidos);
             }
+
+            // Fuzzy com esperados quando docs ficaram iguais/ruins por OCR
+            camposExtraidos = fuzzyAssignDocs(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
+            camposExtraidos = reconciliarDocsSeIguais(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
 
             const antes = { prestador: camposExtraidos.prestadorCpfCnpj, tomador: camposExtraidos.tomadorCpfCnpj };
             camposExtraidos = autoCorrigirInversaoPorEsperado(camposExtraidos, prestadorEsperado, tomadorEsperado);
