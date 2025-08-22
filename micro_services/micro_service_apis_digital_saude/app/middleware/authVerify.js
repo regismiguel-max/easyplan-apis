@@ -94,7 +94,7 @@ verifyAccessPair = (req, res, next) => {
 
     const keyHeader = req.headers["x-access-key"];
     const tokenHeader = req.headers["x-access-token"];
-    const expectedKey = process.env.KEYAUTH;
+    const expectedKey = process.env.ACCESS_KEY;
     const expectedTok = process.env.ACCESS_TOKEN || process.env.TOKENAUTH;
 
     if (!keyHeader) {
