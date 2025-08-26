@@ -219,6 +219,12 @@ ReturnSuccessKualiz = async (req, res, faturas) => {
     }
 };
 
+parseDataBR = (dataStr) => {
+    if (!dataStr) return null;
+    const [dia, mes, ano] = dataStr.split('/').map(Number);
+    return new Date(ano, mes - 1, dia); // mês começa do 0
+}
+
 obterFaturaValida = async (faturas) => {
     if (faturas && faturas.length > 0) {
         const candidatas = faturas.filter(f =>

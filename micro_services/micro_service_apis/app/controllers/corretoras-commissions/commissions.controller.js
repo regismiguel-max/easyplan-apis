@@ -120,22 +120,48 @@ exports.findCommissionDigitalSaude = (req, res) => {
     Commission.findOne(
         {
             where: {
-                codigoCommissionsDigitalSaude: req.params.codigo,
+                codigoCommissionsDigitalSaude: req.body.codigoCommissionsDigitalSaude,
             }
         }
     )
-        .then(bo => {
-            if (bo) {
+        .then(co => {
+            if (co) {
                 res.send({
                     commission: true,
                     sucesso: true
                 });
             }
             else {
-                res.send({
-                    commission: false,
-                    sucesso: true
-                });
+                Commission.findOne(
+                    {
+                        where: {
+                            dataLancamento: req.body.dataLancamento,
+                            corretora_CNPJ: req.body.documento,
+                            parcela: req.body.numeroParcela,
+                        }
+                    }
+                )
+                    .then(com => {
+                        if (com) {
+                            res.send({
+                                commission: true,
+                                sucesso: true
+                            });
+                        }
+                        else {
+                            res.send({
+                                commission: false,
+                                sucesso: true
+                            });
+                        }
+
+                    })
+                    .catch(err => {
+                        res.status(500).send({
+                            message: err.message,
+                            sucesso: false
+                        })
+                    })
             }
 
         })

@@ -52,6 +52,7 @@ require('./corretoras-commissions/situacoes.routes')(app);
 require('./corretoras-commissions/empresa.routes')(app);
 require('./corretoras-commissions/NFDocumento.routes')(app);
 require('./corretoras-commissions/modalidades.routes')(app);
+require('./corretoras-commissions/validaNF.routes')(app);
 
 require('./supervisores/users/auth.routes')(app);
 require('./supervisores/users/user.routes')(app);

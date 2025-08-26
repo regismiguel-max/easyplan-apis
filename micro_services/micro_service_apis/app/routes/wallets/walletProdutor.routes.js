@@ -11,17 +11,17 @@ module.exports = (app) => {
     });
 
     app.get(
-        "/wallets", [authJwt.verifyToken],
+        "/wallets/produtor", [authJwt.verifyToken],
         controller.findAll
     );
 
     app.get(
-        "/wallets/transactions/:produtorCPF", [authJwt.verifyToken],
+        "/wallets/transactions/produtor/:produtorCPF", [authJwt.verifyToken],
         controller.findAllTransactions
     )
 
     app.post(
-        "/wallets/transactions/search", [authJwt.verifyToken],
+        "/wallets/transactions/produtor/search", [authJwt.verifyToken],
         controller.findSearchTransactions
     )
 

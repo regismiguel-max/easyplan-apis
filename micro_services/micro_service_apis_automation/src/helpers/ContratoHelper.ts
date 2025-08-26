@@ -1,6 +1,7 @@
 import moment from "moment-timezone";
 import ClienteDigitalBeneficiarioModel, { ClienteDigitalBeneficiarioAttributes } from "../models/beneficiarios.model";
 import logger from "../config/logger.config";
+import { Op } from "sequelize";
 
 export class ContratoHelper {
     /**
@@ -103,16 +104,45 @@ export class ContratoHelper {
         try {
             if (!dados.length) return { novos: 0, atualizados: 0 };
 
+            // Filtrar campos obrigatórios e válidos
+            const chaves = dados
+                .filter(d => d.cpf && d.codigo_do_contrato && d.codigo_do_beneficiario)
+                .map(d => ({
+                    cpf: d.cpf!,
+                    codigo_do_contrato: d.codigo_do_contrato!,
+                    codigo_do_beneficiario: d.codigo_do_beneficiario!,
+                }));
+
+            // Buscar existentes no banco
+            const existentes = await ClienteDigitalBeneficiarioModel.findAll({
+                where: {
+                    [Op.or]: chaves
+                },
+                attributes: ['cpf', 'codigo_do_contrato', 'codigo_do_beneficiario'],
+                raw: true
+            }) as unknown as ClienteDigitalBeneficiarioAttributes[];
+
+            // Criar set de comparação com chave composta
+            const existentesSet = new Set(
+                existentes.map(e => `${e.cpf}-${e.codigo_do_contrato}-${e.codigo_do_beneficiario}`)
+            );
+
+            // Determinar quantos já existiam
+            const atualizados = dados.filter(d =>
+                existentesSet.has(`${d.cpf}-${d.codigo_do_contrato}-${d.codigo_do_beneficiario}`)
+            ).length;
+
+            const novos = dados.length - atualizados;
+
+            // Campos que devem ser atualizados
             const updateFields = Object.keys(dados[0]).filter(
-                (key) => !['cpf', 'codigo_do_contrato', 'codigo_do_beneficiario'].includes(key)
+                key => !['cpf', 'codigo_do_contrato', 'codigo_do_beneficiario'].includes(key)
             ) as (keyof ClienteDigitalBeneficiarioAttributes)[];
 
-            const result = await ClienteDigitalBeneficiarioModel.bulkCreate(dados, {
+            // Executar inserção com atualização
+            await ClienteDigitalBeneficiarioModel.bulkCreate(dados, {
                 updateOnDuplicate: updateFields,
             });
-
-            const atualizados = result.filter((r: any) => !r._options?.isNewRecord).length;
-            const novos = dados.length - atualizados;
 
             return { novos, atualizados };
         } catch (error: any) {

@@ -45,6 +45,11 @@ module.exports = (app) => {
         controller.findCommissionDigitalSaude
     );
 
+    app.post(
+        "/corretora/commissions/commission/digitalsaude/search",
+        controller.findCommissionDigitalSaude
+    );
+
     app.put(
         "/corretora/commissions/commission/:id", [authJwt.verifyToken],
         controller.updateCommission

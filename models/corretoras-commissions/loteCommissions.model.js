@@ -9,6 +9,24 @@ module.exports = (sequelize, Sequelize) => {
         total_provisionado: {
             type: Sequelize.STRING
         },
+        quantidade_commissions: {
+            type: Sequelize.STRING
+        },
+        total_commissions: {
+            type: Sequelize.STRING
+        },
+        quantidade_estornos: {
+            type: Sequelize.STRING
+        },
+        total_estorno: {
+            type: Sequelize.STRING
+        },
+        dataInicial: {
+            type: Sequelize.STRING
+        },
+        dataFinal: {
+            type: Sequelize.STRING
+        },
         data_previsao: {
             type: Sequelize.STRING
         },

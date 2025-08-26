@@ -64,7 +64,7 @@ exports.getVersionAPPCorretor = (req, res) => {
     res.send(
         {
             "android": {
-                "current": "1.0.13",
+                "current": "1.0.15",
                 "enabled": true,
                 "majorMsg": {
                     "title": "Atualização importante!",
@@ -82,7 +82,7 @@ exports.getVersionAPPCorretor = (req, res) => {
                 }
             },
             "ios": {
-                "current": "1.0.13",
+                "current": "1.0.15",
                 "enabled": true,
                 "majorMsg": {
                     "title": "Atualização importante!",
@@ -100,7 +100,7 @@ exports.getVersionAPPCorretor = (req, res) => {
                 }
             },
             "web": {
-                "current": "1.0.14",
+                "current": "1.0.15",
                 "enabled": false,
                 "majorMsg": {
                     "title": "Atualização importante!",
