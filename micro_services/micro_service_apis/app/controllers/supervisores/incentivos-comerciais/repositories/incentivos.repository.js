@@ -24,7 +24,9 @@ class IncentiveRepository {
                 cnpj: payload.cnpjCorretora,
                 user_id: payload.user_id,
                 corretora_id: payload.corretora_id,
-                status: payload.status
+                status: payload.status,
+                broker_cpf_1: payload.cpfCorretor1 || null,
+                broker_name_1: payload.nameCorretor1 || null,
             };
 
             console.log('payload criado: ', data);
@@ -39,7 +41,7 @@ class IncentiveRepository {
         }
     }
 
-    async update(payload, incentive_id) {
+    async update(payload, user_id) {
         console.log('Entrou no repository');
         
         try {
@@ -57,13 +59,13 @@ class IncentiveRepository {
                 payment_life: payload.lifePrice || null,
                 payment_challenge: payload.challengePrice || null,
                 cnpj: payload.cnpjCorretora,
-                user_id: payload.user_id
+                user_id: user_id
             };
 
             console.log('payload criado: ', data);
             
             const incentive = await Incentives.update(data, {
-                where: {id: incentive_id}
+                where: {id: payload.incentive_id}
             });
 
             console.log('Dado persistido');

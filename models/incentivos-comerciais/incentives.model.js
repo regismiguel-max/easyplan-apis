@@ -86,6 +86,14 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.ENUM('Atingiu', 'Não atingiu'),
             allowNull: true
         },
+        broker_name_1: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
+        broker_cpf_1: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
     });
 
     return Incentives;

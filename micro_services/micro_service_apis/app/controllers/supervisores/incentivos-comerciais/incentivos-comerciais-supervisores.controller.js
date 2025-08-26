@@ -22,6 +22,19 @@ class IncentiveController {
         if (!valid) return res.status(400).json({ sucesso: false, message });
         console.log('Passou na validação');
 
+        const incentives = await db.incentives.findAll({
+            where: {user_id: payload.user_id, status: 'Em andamento', cnpj: payload.cnpjCorretora},
+            order: [['createdAt', 'DESC']],
+        })
+
+        console.log('Vamos vê se encontramos algum incentivo: ', incentives);
+        if(incentives.length > 0) {
+            return res.status(409).json({
+                sucesso: false,
+                message: "Já existe um incentivo em andamento para essa corretora neste mês.",
+            });
+        }
+
         const IncentiveRepositoryInstance = new IncentiveRepository();
         const result = await IncentiveRepositoryInstance.save(payload);
         console.log('Persistido: ', result);
@@ -50,12 +63,14 @@ class IncentiveController {
             let incentives;
             if(user_id === 'admin'){
                 incentives = await db.incentives.findAll({
-                    include: {model: db.corretoras, as: 'corretora'}
+                    include: {model: db.corretoras, as: 'corretora'},
+                    order: [['createdAt', 'DESC']],
                 })
             } else {
                 incentives = await db.incentives.findAll({
                     where: {user_id},
-                    include: {model: db.corretoras, as: 'corretora'}
+                    include: {model: db.corretoras, as: 'corretora'},
+                    order: [['createdAt', 'DESC']],
                 })
             }
             
@@ -111,15 +126,15 @@ class IncentiveController {
             const payload = req.body;
             console.log('Entrou na controller: ', payload);
             // const user_id = req.query.user_id;
-            const incentive_id = req.query.incentive_id;
-            if (!incentive_id) return res.status(400).json({ sucesso: false, message: 'Não foi encontrado nenhum user_id ou identificador do incentivo nos parâmetros da requisição' });
+            const user_id = req.query.user_id;
+            if (!user_id) return res.status(400).json({ sucesso: false, message: 'Não foi encontrado nenhum user_id ou identificador do incentivo nos parâmetros da requisição' });
             
             const { valid, message } = validateIncentivePayload(payload);
             if (!valid) return res.status(400).json({ sucesso: false, message });
             console.log('Passou na validação');
             
             const IncentiveRepositoryInstance = new IncentiveRepository();
-            const result = await IncentiveRepositoryInstance.update(payload, incentive_id);
+            const result = await IncentiveRepositoryInstance.update(payload, user_id);
             console.log('Atualizado', result);
             
             return res.status(201).json({
@@ -149,7 +164,7 @@ class IncentiveController {
             return res.status(201).json({
                 sucesso: true,
                 message: "Incentivo deletado com sucesso.",
-                data: deleteResult,
+                // data: deleteResult,
             });
         } catch (error) {
             return res.status(500).json({
