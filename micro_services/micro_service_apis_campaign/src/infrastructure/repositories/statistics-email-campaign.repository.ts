@@ -23,6 +23,20 @@ class StatisticsEmailCampaignRepository {
         return 'Deletado com sucesso';
     }
 
+    async update(id: number, recipientGroupCount: number) {
+        console.log('Vamos ve o que o repository está recebendo: ', id, recipientGroupCount);
+        
+        const [affectedRows] = await StatisticsEmailCampaignModel.update(
+            {
+                countsRecipients: recipientGroupCount
+            },
+            {
+                where: {emailCampaignId: id}
+            }
+        );
+
+        return affectedRows > 0 ? 'Estatísticas de email atualizada com sucesso.' : 'Nenhuma linha da estatística atualizada. Falhou';
+    }
     // async updateProcessed(eventType: string): Promise<string> {
     //     console.log('Entramos na repository');
         

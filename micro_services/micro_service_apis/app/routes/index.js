@@ -66,11 +66,12 @@ require('./supervisores/apoio_vendas/operators.routes')(app);
 require('./supervisores/utils/regrasBonificacao.routes')(app);
 require('./supervisores/utils/vigenciaFechamento.routes')(app);
 require('./supervisores/access/token.routes')(app);
+require('./supervisores/incentivos/incentivos.routes.js')(app);
 
 require('./whatsapp/whatsappcorretora.routes')(app);
 
 require('./wallets/walletProdutor.routes')(app);
-require('./wallets/walletCorretora.routes')(app);
+// require('./wallets/walletCorretora.routes')(app);
 
 require('./produtores/produtores.routes')(app);
 require('./produtores/contato.routes')(app);

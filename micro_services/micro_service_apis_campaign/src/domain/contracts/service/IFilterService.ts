@@ -13,6 +13,7 @@ export default interface IFilterService {
     campaignId: number, 
     activeFilters: ActiveFilterKey[], 
     activeFiltersValues: ActiveFiltersValues,
+    diffs: {key: string, value: boolean}[],
     persistenceData?: boolean
   ): Promise<FilterProcessResponse>;
 

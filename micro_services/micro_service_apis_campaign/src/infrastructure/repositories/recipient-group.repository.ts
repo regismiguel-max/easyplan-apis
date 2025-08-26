@@ -6,18 +6,19 @@ import { sequelizeWhereToSQL } from "../../utils/sql-recipient-group/where-to-sq
 import { FilterStep } from "../../domain/entities/interfaces/email-campaign/output/process-filter.interface";
 import connection_db from "../database/config/database";
 import ClienteBeneficiarioTesteModel from "../database/models/client-test.model";
+import ClienteBeneficiarioProductionModel from "../database/models/client-production.model";
 
 export default class RecipientGroupRepository {
     //************************** RECIPIENT GROUP REPOSITORY ***************************/
     async getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string> {
-        // const recipientGroupDB = await ClientModel.findAll({
-        //     where: filters,
-        //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
-        // });
-        const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
+        const recipientGroupDB = await ClienteBeneficiarioProductionModel.findAll({
             where: filters,
             attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
         });
+        // const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
+        //     where: filters,
+        //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
+        // });
 
         if(recipientGroupDB.length <= 0) return 'Não existe cliente(s) que atendam a esse conjunto de filtros';
         
@@ -54,7 +55,7 @@ export default class RecipientGroupRepository {
 
         const recipientsGroupResponse: RecipientGroup[] = recipientGroupSaved.map(recipientGroup => recipientGroup.get({plain: true}))
 
-        console.log('RG salvo e manipulado: ', recipientsGroupResponse);
+        console.log('RG salvo e manipulado: ', recipientsGroupResponse.length);
 
         return recipientsGroupResponse;
     }
@@ -103,7 +104,7 @@ export default class RecipientGroupRepository {
         console.log('Entrou no diagnostic');
         
         let sqlParts: string[] = [];
-        let previousStep = '`cliente_digital_beneficiarios_teste`';
+        let previousStep = '`automation_cliente_digital_beneficiarios`';
 
         for (let i = 0; i < filterSteps.length; i++) {
             const step = filterSteps[i];

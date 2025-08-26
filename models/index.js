@@ -108,7 +108,13 @@ db.corretoraPaymentsCommissions = require("./corretoras-commissions/corretoraPay
 
 db.beneficiariosDigital = require("./beneficiarios/beneficiario.model.js")(sequelize, Sequelize);
 
+
+db.incentives = require("./incentivos-comerciais/incentives.model.js")(sequelize, Sequelize);
+db.incentives_results = require("./incentivos-comerciais/incentives-results.model.js")(sequelize, Sequelize);
+db.incentives_propostas = require("./incentivos-comerciais/incentives-qualitative.model.js")(sequelize, Sequelize);
+
 db.systemConfigCheck = require("./system-config/systemConfigCheck.model.js")(sequelize, Sequelize);
+
 
 
 db.role.belongsToMany(db.user, {
@@ -459,5 +465,45 @@ db.ROLES = ["admin", "agent", "operator", "client"];
 // db.produtores_situacoes.create({ id: 3,nome: 'EM ANALISE', descricao: 'Situação em em análise' })
 // db.produtores_situacoes.create({ id: 4,nome: 'PENDENTE', descricao: 'Situação em pendencia' })
 
+db.incentives.hasOne(db.incentives_results, {
+    foreignKey: 'incentive_id',
+    as: 'result'
+});
 
+db.incentives_results.belongsTo(db.incentives, {
+    foreignKey: 'incentive_id',
+    as: 'incentive'
+})
+
+db.incentives.hasOne(db.user, {
+    foreignKey: 'user_id',
+    as: 'incentive'
+});
+
+db.user.belongsTo(db.incentives, {
+    foreignKey: 'user_id',
+    as: 'user'
+})
+
+db.incentives.belongsTo(db.corretoras, {
+    foreignKey: 'corretora_id',
+    as: 'corretora'
+});
+
+db.corretoras.hasMany(db.incentives, {
+    foreignKey: 'corretora_id',
+    as: 'incentives'
+})
+
+// Um Incentivo possui muitas propostas
+db.incentives.hasMany(db.incentives_propostas, {
+    foreignKey: 'incentive_id',
+    as: 'propostas'
+});
+
+// Cada proposta pertence a um Incentivo
+db.incentives_propostas.belongsTo(db.incentives, {
+    foreignKey: 'incentive_id',
+    as: 'incentivo'
+});
 module.exports = db;

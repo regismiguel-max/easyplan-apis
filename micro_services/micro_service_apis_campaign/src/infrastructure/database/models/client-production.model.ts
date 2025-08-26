@@ -1,8 +1,8 @@
 import { DataTypes } from 'sequelize';
 import connection_db from '../../database/config/database';
 
-const ClienteBeneficiarioTesteModel = connection_db.define(
-  'ClienteBeneficiarioTesteModel',
+const ClienteBeneficiarioProductionModel = connection_db.define(
+  'ClienteBeneficiarioProductionModel',
   {
     id: {
       type: DataTypes.CHAR(36),
@@ -16,7 +16,7 @@ const ClienteBeneficiarioTesteModel = connection_db.define(
     data_proximo_reajuste: DataTypes.STRING,
     codigo_do_contrato: DataTypes.STRING,
     data_de_cancelamento: DataTypes.STRING,
-    //motivo_de_cancelamento
+    motivo_de_cancelamento: DataTypes.STRING,
     data_de_exclusao: DataTypes.STRING,
     numero_da_proposta: DataTypes.STRING,
     data_de_inclusao: DataTypes.STRING,
@@ -32,7 +32,7 @@ const ClienteBeneficiarioTesteModel = connection_db.define(
     grupo_corretor: DataTypes.STRING,
     documento_supervisor: DataTypes.STRING,
     nome_supervisor: DataTypes.STRING,
-    // documento_corretora
+    documento_corretora: DataTypes.STRING,
     nome_corretora: DataTypes.TEXT,
     grupo_corretora: DataTypes.STRING,
     documento_angiariador: DataTypes.STRING,
@@ -52,9 +52,8 @@ const ClienteBeneficiarioTesteModel = connection_db.define(
         allowNull: false
     },
     rg: DataTypes.STRING,
-    cnh: DataTypes.STRING,
-    // cns
-    // dnv
+    cns: DataTypes.STRING,
+    dnv: DataTypes.STRING,
     pis: DataTypes.STRING,
     nome_da_mae: DataTypes.TEXT,
     endereco: DataTypes.TEXT,
@@ -83,7 +82,7 @@ const ClienteBeneficiarioTesteModel = connection_db.define(
     forma_de_ajuste: DataTypes.STRING,
     ajuste: DataTypes.STRING,
     origem_de_venda: DataTypes.STRING,
-    // valor_do_contrato
+    valor_do_contrato: DataTypes.STRING,
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -94,11 +93,11 @@ const ClienteBeneficiarioTesteModel = connection_db.define(
     }
   },
   {
-    tableName: 'cliente_digital_beneficiarios_teste',
+    tableName: 'automation_cliente_digital_beneficiarios',
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at',
   }
 );
 
-export default ClienteBeneficiarioTesteModel;
+export default ClienteBeneficiarioProductionModel;
