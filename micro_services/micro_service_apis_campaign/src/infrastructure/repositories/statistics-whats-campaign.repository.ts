@@ -46,6 +46,19 @@ export default class StatisticsWhatsCampaignRepository {
         return affectedRows.length <= 0 ? 'Atualização falhou' : 'Atualização ocorrida com sucesso';
     }
 
+    async updateRecipientGroupCount(id: number, recipientGroupCount: number) {
+        const [affectedRows] = await StatisticsWhatsCampaignModel.update(
+            {
+                countsRecipients: recipientGroupCount
+            },
+            {
+                where: {campaignId: id}
+            }
+        );
+
+        return affectedRows > 0 ? 'Estatísticas de email atualizada com sucesso.' : 'Nenhuma linha da estatística atualizada. Falhou';
+    }
+
     async delete(id: number): Promise<string> {
         console.log('Entramos no repository: ', id);
         

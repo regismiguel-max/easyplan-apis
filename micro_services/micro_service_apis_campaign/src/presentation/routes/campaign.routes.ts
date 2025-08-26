@@ -57,7 +57,9 @@ const filterService2 = new FilterService(filterStrategyFactory2);
 // const emailScheduleRepository2 = new EmailCampaignScheduleRepository();
 const recipientGroupRepository1 = new RecipientGroupRepository();
 const filtersRepository8 = new FiltersRepository();//filtersRepository,
-const editCampaignUseCase = new EditCampaignUseCase(campaignRepository6, recipientGroupRepository1, filtersRepository8, filterService2);
+const emailStatisticsRepositoryEdit = new StatisticsEmailCampaignRepository();
+const whatsStatisticsRepositoryEdit = new StatisticsWhatsCampaignRepository();
+const editCampaignUseCase = new EditCampaignUseCase(campaignRepository6, recipientGroupRepository1, filtersRepository8, filterService2, emailStatisticsRepositoryEdit, whatsStatisticsRepositoryEdit);
 const campaignController6 = new CampaignController(undefined, undefined, undefined, undefined, editCampaignUseCase, undefined);
 router.put('/edit', campaignController6.edit.bind(campaignController6));
 

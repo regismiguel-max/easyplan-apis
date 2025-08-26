@@ -37,7 +37,7 @@ export class BirthFilterStrategy implements IFilterStrategy {
 
         if (diaStr && mesStr && anoStr) {
         // Exatamente dia/mês/ano
-        conditions.push(literal(`data_de_nascimento = '${anoStr}/${mesStr}/${diaStr}'`));
+        conditions.push(literal(`data_de_nascimento = '${anoStr}-${mesStr}-${diaStr}'`));
         } else {
             // Parcial: podemos usar SUBSTRING para comparar partes da string
             if (diaStr) {
@@ -80,7 +80,7 @@ export class BirthFilterStrategy implements IFilterStrategy {
 
         if (diaStr && mesStr && anoStr) {
         // Exatamente dia/mês/ano
-        conditions.push(literal(`data_de_nascimento = '${anoStr}/${mesStr}/${diaStr}'`));
+        conditions.push(literal(`data_de_nascimento = '${anoStr}-${mesStr}-${diaStr}'`));
         } else {
             // Parcial: podemos usar SUBSTRING para comparar partes da string
             if (diaStr) {

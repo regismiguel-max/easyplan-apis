@@ -57,7 +57,7 @@ export default class SaveCampaignUseCase implements ISaveCampaignUseCase{
             console.log('Diagnóstico de filtros aplicado:', diagnostics);
             diagnostics.report.forEach(msg => console.log(msg));
 
-            let filterNoHasRecipient: string[] | string = diagnostics.report.filter(item => item.includes('0 r'));
+            let filterNoHasRecipient: string[] | string = diagnostics.report.filter(item => item.includes('retornando: 0 registro(s).'));
 
             recipientGroupCount = diagnostics.totalFinal;
 
