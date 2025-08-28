@@ -52,7 +52,8 @@ morganBody(app, {
 
 const db = require("../../models");
 
-db.sequelize.sync();
+// db.sequelize.sync();
+db.sequelize.authenticate();
 
 // simple route
 app.get("/", (req, res) => {

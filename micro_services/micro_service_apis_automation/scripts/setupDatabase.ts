@@ -15,8 +15,9 @@ async function setupDatabase() {
         ClienteDigitalBeneficiarioModel.initialize(sequelize);
         SyncLogModel.initialize(sequelize);
 
-        console.log("🛠️ Executando sync com alter:true...");
-        await sequelize.sync({ alter: true });
+        console.log("🛠️ Executando sync...");
+        // await sequelize.sync();
+        await sequelize.authenticate();
 
         console.log("✅ Tabelas sincronizadas com sucesso.");
         process.exit(0);
