@@ -290,7 +290,7 @@ class IncentiveController {
         let codigos_cpfs = [];
         for(let proposta of propostas){
             const codigoDB = await db.beneficiariosDigital.findOne({
-                where: {cpf: proposta.contratante_cpf},
+                where: {numero_da_proposta: proposta.propostaID},
                 attributes: ['codigo_do_contrato']
             });
 
