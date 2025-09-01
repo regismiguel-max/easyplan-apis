@@ -9,7 +9,7 @@ const WhatsApp = require("../whatsapp/whatsapp.controller")
 
 const xlsx = require('node-xlsx');
 const moment = require('moment');
-const { where, Op } = require("sequelize");
+const { where, Op, QueryTypes } = require("sequelize");
 const axios = require('axios');
 const path = require('path');
 
@@ -1189,1196 +1189,1380 @@ exports.addLoteCommissions = async (req, res) => {
         });
 };
 
+// exports.addLoteCommissionsDigital = async (req, res) => {
+//     const lotecnpj = [];
+//     const commissions = req.body.commissions;
+//     const estornos = req.body.estornos;
+
+//     let lotecommissionsestornos;
+//     if (commissions.length > 0 && estornos.length > 0) {
+//         lotecommissionsestornos = await commissions.concat(estornos);
+//     }
+//     else {
+//         if (commissions.length > 0) {
+//             lotecommissionsestornos = await commissions;
+//         }
+//         else {
+//             lotecommissionsestornos = await estornos;
+//         }
+//     }
+
+//     await lotecommissionsestornos.forEach(async (element, index) => {
+//         if (lotecnpj.indexOf(element.corretora_CNPJ) === -1) {
+//             lotecnpj.push(element.corretora_CNPJ);
+//         }
+//     });
+
+//     await LoteCommissions.create({
+//         quantidade: lotecommissionsestornos.length,
+//         total_contrato: req.body.totalContrato,
+//         total_provisionado: null,
+//         quantidade_commissions: commissions.length,
+//         total_commissions: req.body.totalCommissions,
+//         quantidade_estornos: estornos.length,
+//         total_estorno: req.body.totalEstornos,
+//         dataInicial: req.body.dataInicial,
+//         dataFinal: req.body.dataFinal,
+//         data_previsao: req.body.previsao,
+//         status_ID: 3,
+//         empresa_ID: null,
+//         arquivo_URL: '',
+//         disabled: false,
+//     })
+//         .then(async lote => {
+//             if (lote) {
+//                 await lotecnpj.forEach(async (element, index) => {
+//                     const commi = [];
+//                     let subTotalContrato = 0;
+//                     let qntCommissions = 0;
+//                     let subtotalCommissions = 0;
+//                     let subtotalEstorno = 0;
+//                     let qntEstornos = 0;
+//                     await lotecommissionsestornos.forEach((el, i) => {
+//                         if (String(element) === String(el.corretora_CNPJ)) {
+//                             commi.push({
+//                                 corretora: el.corretora,
+//                                 corretora_CNPJ: String(el.corretora_CNPJ),
+//                                 produtor: el.produtor,
+//                                 nome_contrato: el.nome_contrato,
+//                                 cpf_cnpj_contrato: el.cpf_cnpj_contrato,
+//                                 operadora: el.operadora,
+//                                 modalidade: el.modalidade,
+//                                 parcela: el.parcela,
+//                                 percentual_comissao: el.percentual_comissao,
+//                                 vidas: el.vidas,
+//                                 valor_contrato: el.valor_contrato ? Number(el.valor_contrato).toFixed(2) : null,
+//                                 data_previsao: req.body.previsao,
+//                                 data_pagamento: null,
+//                                 valor_provisionado: el.valor_provisionado ? Number(el.valor_provisionado).toFixed(2) : null,
+//                                 situacao_ID: 4,
+//                                 status_ID: 3,
+//                                 sub_lote_commissions_ID: null,
+//                                 lote_commissions_ID: null,
+//                                 nf_ID: null,
+//                                 codigoCommissionsDigitalSaude: el.codigoCommissionsDigitalSaude,
+//                                 valor_estorno: el.valor_estorno ? Number(el.valor_estorno) : null,
+//                                 tipo: el.tipo,
+//                                 descricao: el.descricao,
+//                                 dataLancamento: el.dataLancamento,
+//                                 codigoProduto: el.codigoProduto,
+//                                 nomeProduto: el.nomeProduto,
+//                                 vigencia: el.vigencia,
+//                             })
+//                             subTotalContrato = Number(Number(subTotalContrato) + Number(el.valor_contrato.toFixed(2))).toFixed(2);
+//                             if (el.tipo === 'credito') {
+//                                 qntCommissions += 1;
+//                                 subtotalCommissions = Number(Number(subtotalCommissions) + Number(el.valor_provisionado.toFixed(2))).toFixed(2);
+//                             }
+//                             else {
+//                                 qntEstornos += 1;
+//                                 subtotalEstorno = Number(Number(subtotalEstorno) + Number(el.valor_estorno.toFixed(2))).toFixed(2);
+//                             }
+//                         }
+//                     });
+//                     if (commi.length > 0) {
+//                         await SubLoteCommissions.create({
+//                             corretora: commi[0].corretora,
+//                             corretora_CNPJ: commi[0].corretora_CNPJ,
+//                             quantidade: commi.length,
+//                             total_contrato: subTotalContrato,
+//                             total_provisionado: null,
+//                             quantidade_commissions: qntCommissions,
+//                             total_commissions: subtotalCommissions,
+//                             quantidade_estornos: qntEstornos,
+//                             total_estornos: subtotalEstorno,
+//                             data_previsao: req.body.previsao,
+//                             data_pagamento: null,
+//                             situacao_ID: 4,
+//                             status_ID: 3,
+//                             lote_commissions_ID: lote.id,
+//                             nf_ID: null,
+//                             disabled: false,
+//                         })
+//                             .then(async sublote => {
+//                                 if (sublote) {
+//                                     let sql = 'INSERT INTO `corretora_commissions_sub_lote_lotes` (`sub_lote_ID`, `lote_ID`) VALUES (';
+//                                     db.sequelize.query(`${sql}${sublote.id}, ${lote.id})`, { type: db.sequelize.QueryTypes.INSERT })
+//                                         .then(async (sublotelote) => {
+//                                             await commi.forEach(async (ele, ind) => {
+//                                                 commi[ind].sub_lote_commissions_ID = sublote.id;
+//                                                 commi[ind].lote_commissions_ID = lote.id;
+//                                                 Commissions.create(ele)
+//                                                     .then(async co => {
+//                                                         if (co) {
+//                                                             let sql2 = 'INSERT INTO `corretora_commissions_commission_sub_lote` (`commission_ID`, `sub_lote_ID`) VALUES (';
+//                                                             db.sequelize.query(`${sql2}${co.id}, ${sublote.id})`, { type: db.sequelize.QueryTypes.INSERT })
+//                                                                 .then(async (commissionsublote) => {
+//                                                                     if (Number(lotecnpj.length) - 1 === Number(index) && Number(commi.length) - 1 === Number(ind)) {
+//                                                                         res.send({
+//                                                                             loteCommissions: lote,
+//                                                                             message: "Lote de comissões cadastrado com sucesso!",
+//                                                                             sucesso: true
+//                                                                         });
+//                                                                     }
+//                                                                 })
+//                                                                 .catch(async err => {
+//                                                                     await Commissions.findAll({
+//                                                                         where: {
+//                                                                             lote_commissions_ID: lote.id
+//                                                                         }
+//                                                                     }).then(async com => {
+//                                                                         if (com) {
+//                                                                             com.forEach((eldc, idc) => {
+//                                                                                 if (idc === com.length - 1) {
+//                                                                                     Commissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: eldc.id
+//                                                                                         },
+//                                                                                     }).then(async dco => {
+//                                                                                         await SubLoteCommissions.findAll({
+//                                                                                             where: {
+//                                                                                                 lote_commissions_ID: lote.id
+//                                                                                             }
+//                                                                                         }).then(async sub => {
+//                                                                                             if (sub) {
+//                                                                                                 sub.forEach(async (elsu, isu) => {
+//                                                                                                     if (isu === sub.length - 1) {
+//                                                                                                         await SubLoteCommissions.destroy({
+//                                                                                                             where: {
+//                                                                                                                 id: elsu.id
+//                                                                                                             },
+//                                                                                                         }).then(async dsub => {
+//                                                                                                             await LoteCommissions.destroy({
+//                                                                                                                 where: {
+//                                                                                                                     id: lote.id
+//                                                                                                                 },
+//                                                                                                             }).then(dlo => {
+//                                                                                                                 res.send({
+//                                                                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                                                                     sucesso: true
+//                                                                                                                 });
+//                                                                                                             }).catch(err => {
+//                                                                                                                 res.status(401).send({
+//                                                                                                                     message: err.message,
+//                                                                                                                     sucesso: false
+//                                                                                                                 });
+//                                                                                                             });
+//                                                                                                         }).catch(err => {
+//                                                                                                             res.status(401).send({
+//                                                                                                                 message: err.message,
+//                                                                                                                 sucesso: false
+//                                                                                                             });
+//                                                                                                         })
+//                                                                                                     }
+//                                                                                                     else {
+//                                                                                                         SubLoteCommissions.destroy({
+//                                                                                                             where: {
+//                                                                                                                 id: elsu.id
+//                                                                                                             },
+//                                                                                                         })
+//                                                                                                     }
+//                                                                                                 })
+//                                                                                             }
+//                                                                                             else {
+//                                                                                                 await LoteCommissions.destroy({
+//                                                                                                     where: {
+//                                                                                                         id: lote.id
+//                                                                                                     },
+//                                                                                                 }).then(comm => {
+//                                                                                                     res.send({
+//                                                                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                                                                         sucesso: true
+//                                                                                                     });
+//                                                                                                 }).catch(err => {
+//                                                                                                     res.status(401).send({
+//                                                                                                         message: err.message,
+//                                                                                                         sucesso: false
+//                                                                                                     });
+//                                                                                                 });
+//                                                                                             }
+//                                                                                         }).catch(err => {
+//                                                                                             res.status(401).send({
+//                                                                                                 message: err.message,
+//                                                                                                 sucesso: false
+//                                                                                             });
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     })
+//                                                                                 }
+//                                                                                 else {
+//                                                                                     Commissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: eldc.id
+//                                                                                         },
+//                                                                                     })
+//                                                                                 }
+//                                                                             });
+//                                                                         } else {
+//                                                                             await SubLoteCommissions.findAll({
+//                                                                                 where: {
+//                                                                                     lote_commissions_ID: lote.id
+//                                                                                 }
+//                                                                             }).then(async sub => {
+//                                                                                 if (sub) {
+//                                                                                     sub.forEach(async (elsu, isu) => {
+//                                                                                         if (isu === sub.length - 1) {
+//                                                                                             await SubLoteCommissions.destroy({
+//                                                                                                 where: {
+//                                                                                                     id: elsu.id
+//                                                                                                 },
+//                                                                                             }).then(async dsub => {
+//                                                                                                 await LoteCommissions.destroy({
+//                                                                                                     where: {
+//                                                                                                         id: lote.id
+//                                                                                                     },
+//                                                                                                 }).then(comm => {
+//                                                                                                     res.send({
+//                                                                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                                                                         sucesso: true
+//                                                                                                     });
+//                                                                                                 }).catch(err => {
+//                                                                                                     res.status(401).send({
+//                                                                                                         message: err.message,
+//                                                                                                         sucesso: false
+//                                                                                                     });
+//                                                                                                 });
+//                                                                                             }).catch(err => {
+//                                                                                                 res.status(401).send({
+//                                                                                                     message: err.message,
+//                                                                                                     sucesso: false
+//                                                                                                 });
+//                                                                                             })
+//                                                                                         }
+//                                                                                         else {
+//                                                                                             SubLoteCommissions.destroy({
+//                                                                                                 where: {
+//                                                                                                     id: elsu.id
+//                                                                                                 },
+//                                                                                             })
+//                                                                                         }
+//                                                                                     })
+//                                                                                 }
+//                                                                                 else {
+//                                                                                     await LoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: lote.id
+//                                                                                         },
+//                                                                                     }).then(comm => {
+//                                                                                         res.send({
+//                                                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                                                             sucesso: true
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     });
+//                                                                                 }
+//                                                                             }).catch(err => {
+//                                                                                 res.status(401).send({
+//                                                                                     message: err.message,
+//                                                                                     sucesso: false
+//                                                                                 });
+//                                                                             });
+//                                                                         }
+//                                                                     }).catch(err => {
+//                                                                         res.status(401).send({
+//                                                                             message: err.message,
+//                                                                             sucesso: false
+//                                                                         });
+//                                                                     });
+//                                                                 });
+
+//                                                         } else {
+//                                                             await Commissions.findAll({
+//                                                                 where: {
+//                                                                     lote_commissions_ID: lote.id
+//                                                                 }
+//                                                             }).then(async com => {
+//                                                                 if (com) {
+//                                                                     com.forEach((eldc, idc) => {
+//                                                                         if (idc === com.length - 1) {
+//                                                                             Commissions.destroy({
+//                                                                                 where: {
+//                                                                                     id: eldc.id
+//                                                                                 },
+//                                                                             }).then(async dco => {
+//                                                                                 await SubLoteCommissions.findAll({
+//                                                                                     where: {
+//                                                                                         lote_commissions_ID: lote.id
+//                                                                                     }
+//                                                                                 }).then(async sub => {
+//                                                                                     if (sub) {
+//                                                                                         sub.forEach(async (elsu, isu) => {
+//                                                                                             if (isu === sub.length - 1) {
+//                                                                                                 await SubLoteCommissions.destroy({
+//                                                                                                     where: {
+//                                                                                                         id: elsu.id
+//                                                                                                     },
+//                                                                                                 }).then(async dsub => {
+//                                                                                                     await LoteCommissions.destroy({
+//                                                                                                         where: {
+//                                                                                                             id: lote.id
+//                                                                                                         },
+//                                                                                                     }).then(dlo => {
+//                                                                                                         res.send({
+//                                                                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                                                                             sucesso: true
+//                                                                                                         });
+//                                                                                                     }).catch(err => {
+//                                                                                                         res.status(401).send({
+//                                                                                                             message: err.message,
+//                                                                                                             sucesso: false
+//                                                                                                         });
+//                                                                                                     });
+//                                                                                                 }).catch(err => {
+//                                                                                                     res.status(401).send({
+//                                                                                                         message: err.message,
+//                                                                                                         sucesso: false
+//                                                                                                     });
+//                                                                                                 })
+//                                                                                             }
+//                                                                                             else {
+//                                                                                                 SubLoteCommissions.destroy({
+//                                                                                                     where: {
+//                                                                                                         id: elsu.id
+//                                                                                                     },
+//                                                                                                 })
+//                                                                                             }
+//                                                                                         })
+//                                                                                     }
+//                                                                                     else {
+//                                                                                         await LoteCommissions.destroy({
+//                                                                                             where: {
+//                                                                                                 id: lote.id
+//                                                                                             },
+//                                                                                         }).then(comm => {
+//                                                                                             res.send({
+//                                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                                 sucesso: true
+//                                                                                             });
+//                                                                                         }).catch(err => {
+//                                                                                             res.status(401).send({
+//                                                                                                 message: err.message,
+//                                                                                                 sucesso: false
+//                                                                                             });
+//                                                                                         });
+//                                                                                     }
+//                                                                                 }).catch(err => {
+//                                                                                     res.status(401).send({
+//                                                                                         message: err.message,
+//                                                                                         sucesso: false
+//                                                                                     });
+//                                                                                 });
+//                                                                             }).catch(err => {
+//                                                                                 res.status(401).send({
+//                                                                                     message: err.message,
+//                                                                                     sucesso: false
+//                                                                                 });
+//                                                                             })
+//                                                                         }
+//                                                                         else {
+//                                                                             Commissions.destroy({
+//                                                                                 where: {
+//                                                                                     id: eldc.id
+//                                                                                 },
+//                                                                             })
+//                                                                         }
+//                                                                     });
+//                                                                 } else {
+//                                                                     await SubLoteCommissions.findAll({
+//                                                                         where: {
+//                                                                             lote_commissions_ID: lote.id
+//                                                                         }
+//                                                                     }).then(async sub => {
+//                                                                         if (sub) {
+//                                                                             sub.forEach(async (elsu, isu) => {
+//                                                                                 if (isu === sub.length - 1) {
+//                                                                                     await SubLoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: elsu.id
+//                                                                                         },
+//                                                                                     }).then(async dsub => {
+//                                                                                         await LoteCommissions.destroy({
+//                                                                                             where: {
+//                                                                                                 id: lote.id
+//                                                                                             },
+//                                                                                         }).then(comm => {
+//                                                                                             res.send({
+//                                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                                 sucesso: true
+//                                                                                             });
+//                                                                                         }).catch(err => {
+//                                                                                             res.status(401).send({
+//                                                                                                 message: err.message,
+//                                                                                                 sucesso: false
+//                                                                                             });
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     })
+//                                                                                 }
+//                                                                                 else {
+//                                                                                     SubLoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: elsu.id
+//                                                                                         },
+//                                                                                     })
+//                                                                                 }
+//                                                                             })
+//                                                                         }
+//                                                                         else {
+//                                                                             await LoteCommissions.destroy({
+//                                                                                 where: {
+//                                                                                     id: lote.id
+//                                                                                 },
+//                                                                             }).then(comm => {
+//                                                                                 res.send({
+//                                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                                     sucesso: true
+//                                                                                 });
+//                                                                             }).catch(err => {
+//                                                                                 res.status(401).send({
+//                                                                                     message: err.message,
+//                                                                                     sucesso: false
+//                                                                                 });
+//                                                                             });
+//                                                                         }
+//                                                                     }).catch(err => {
+//                                                                         res.status(401).send({
+//                                                                             message: err.message,
+//                                                                             sucesso: false
+//                                                                         });
+//                                                                     });
+//                                                                 }
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             });
+//                                                         }
+//                                                     })
+//                                                     .catch(async err => {
+//                                                         await Commissions.findAll({
+//                                                             where: {
+//                                                                 lote_commissions_ID: lote.id
+//                                                             }
+//                                                         }).then(async com => {
+//                                                             if (com) {
+//                                                                 com.forEach((eldc, idc) => {
+//                                                                     if (idc === com.length - 1) {
+//                                                                         Commissions.destroy({
+//                                                                             where: {
+//                                                                                 id: eldc.id
+//                                                                             },
+//                                                                         }).then(async dco => {
+//                                                                             await SubLoteCommissions.findAll({
+//                                                                                 where: {
+//                                                                                     lote_commissions_ID: lote.id
+//                                                                                 }
+//                                                                             }).then(async sub => {
+//                                                                                 if (sub) {
+//                                                                                     sub.forEach(async (elsu, isu) => {
+//                                                                                         if (isu === sub.length - 1) {
+//                                                                                             await SubLoteCommissions.destroy({
+//                                                                                                 where: {
+//                                                                                                     id: elsu.id
+//                                                                                                 },
+//                                                                                             }).then(async dsub => {
+//                                                                                                 await LoteCommissions.destroy({
+//                                                                                                     where: {
+//                                                                                                         id: lote.id
+//                                                                                                     },
+//                                                                                                 }).then(dlo => {
+//                                                                                                     res.send({
+//                                                                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                                                                         sucesso: true
+//                                                                                                     });
+//                                                                                                 }).catch(err => {
+//                                                                                                     res.status(401).send({
+//                                                                                                         message: err.message,
+//                                                                                                         sucesso: false
+//                                                                                                     });
+//                                                                                                 });
+//                                                                                             }).catch(err => {
+//                                                                                                 res.status(401).send({
+//                                                                                                     message: err.message,
+//                                                                                                     sucesso: false
+//                                                                                                 });
+//                                                                                             })
+//                                                                                         }
+//                                                                                         else {
+//                                                                                             SubLoteCommissions.destroy({
+//                                                                                                 where: {
+//                                                                                                     id: elsu.id
+//                                                                                                 },
+//                                                                                             })
+//                                                                                         }
+//                                                                                     })
+//                                                                                 }
+//                                                                                 else {
+//                                                                                     await LoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: lote.id
+//                                                                                         },
+//                                                                                     }).then(comm => {
+//                                                                                         res.send({
+//                                                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                                                             sucesso: true
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     });
+//                                                                                 }
+//                                                                             }).catch(err => {
+//                                                                                 res.status(401).send({
+//                                                                                     message: err.message,
+//                                                                                     sucesso: false
+//                                                                                 });
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         })
+//                                                                     }
+//                                                                     else {
+//                                                                         Commissions.destroy({
+//                                                                             where: {
+//                                                                                 id: eldc.id
+//                                                                             },
+//                                                                         })
+//                                                                     }
+//                                                                 });
+//                                                             } else {
+//                                                                 await SubLoteCommissions.findAll({
+//                                                                     where: {
+//                                                                         lote_commissions_ID: lote.id
+//                                                                     }
+//                                                                 }).then(async sub => {
+//                                                                     if (sub) {
+//                                                                         sub.forEach(async (elsu, isu) => {
+//                                                                             if (isu === sub.length - 1) {
+//                                                                                 await SubLoteCommissions.destroy({
+//                                                                                     where: {
+//                                                                                         id: elsu.id
+//                                                                                     },
+//                                                                                 }).then(async dsub => {
+//                                                                                     await LoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: lote.id
+//                                                                                         },
+//                                                                                     }).then(comm => {
+//                                                                                         res.send({
+//                                                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                                                             sucesso: true
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     });
+//                                                                                 }).catch(err => {
+//                                                                                     res.status(401).send({
+//                                                                                         message: err.message,
+//                                                                                         sucesso: false
+//                                                                                     });
+//                                                                                 })
+//                                                                             }
+//                                                                             else {
+//                                                                                 SubLoteCommissions.destroy({
+//                                                                                     where: {
+//                                                                                         id: elsu.id
+//                                                                                     },
+//                                                                                 })
+//                                                                             }
+//                                                                         })
+//                                                                     }
+//                                                                     else {
+//                                                                         await LoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: lote.id
+//                                                                             },
+//                                                                         }).then(comm => {
+//                                                                             res.send({
+//                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                 sucesso: true
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         });
+//                                                                     }
+//                                                                 }).catch(err => {
+//                                                                     res.status(401).send({
+//                                                                         message: err.message,
+//                                                                         sucesso: false
+//                                                                     });
+//                                                                 });
+//                                                             }
+//                                                         }).catch(err => {
+//                                                             res.status(401).send({
+//                                                                 message: err.message,
+//                                                                 sucesso: false
+//                                                             });
+//                                                         });
+//                                                     });
+//                                             });
+//                                         })
+//                                         .catch(async err => {
+//                                             await Commissions.findAll({
+//                                                 where: {
+//                                                     lote_commissions_ID: lote.id
+//                                                 }
+//                                             }).then(async com => {
+//                                                 if (com) {
+//                                                     com.forEach((eldc, idc) => {
+//                                                         if (idc === com.length - 1) {
+//                                                             Commissions.destroy({
+//                                                                 where: {
+//                                                                     id: eldc.id
+//                                                                 },
+//                                                             }).then(async dco => {
+//                                                                 await SubLoteCommissions.findAll({
+//                                                                     where: {
+//                                                                         lote_commissions_ID: lote.id
+//                                                                     }
+//                                                                 }).then(async sub => {
+//                                                                     if (sub) {
+//                                                                         sub.forEach(async (elsu, isu) => {
+//                                                                             if (isu === sub.length - 1) {
+//                                                                                 await SubLoteCommissions.destroy({
+//                                                                                     where: {
+//                                                                                         id: elsu.id
+//                                                                                     },
+//                                                                                 }).then(async dsub => {
+//                                                                                     await LoteCommissions.destroy({
+//                                                                                         where: {
+//                                                                                             id: lote.id
+//                                                                                         },
+//                                                                                     }).then(dlo => {
+//                                                                                         res.send({
+//                                                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                                                             sucesso: true
+//                                                                                         });
+//                                                                                     }).catch(err => {
+//                                                                                         res.status(401).send({
+//                                                                                             message: err.message,
+//                                                                                             sucesso: false
+//                                                                                         });
+//                                                                                     });
+//                                                                                 }).catch(err => {
+//                                                                                     res.status(401).send({
+//                                                                                         message: err.message,
+//                                                                                         sucesso: false
+//                                                                                     });
+//                                                                                 })
+//                                                                             }
+//                                                                             else {
+//                                                                                 SubLoteCommissions.destroy({
+//                                                                                     where: {
+//                                                                                         id: elsu.id
+//                                                                                     },
+//                                                                                 })
+//                                                                             }
+//                                                                         })
+//                                                                     }
+//                                                                     else {
+//                                                                         await LoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: lote.id
+//                                                                             },
+//                                                                         }).then(comm => {
+//                                                                             res.send({
+//                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                 sucesso: true
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         });
+//                                                                     }
+//                                                                 }).catch(err => {
+//                                                                     res.status(401).send({
+//                                                                         message: err.message,
+//                                                                         sucesso: false
+//                                                                     });
+//                                                                 });
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             })
+//                                                         }
+//                                                         else {
+//                                                             Commissions.destroy({
+//                                                                 where: {
+//                                                                     id: eldc.id
+//                                                                 },
+//                                                             })
+//                                                         }
+//                                                     });
+//                                                 } else {
+//                                                     await SubLoteCommissions.findAll({
+//                                                         where: {
+//                                                             lote_commissions_ID: lote.id
+//                                                         }
+//                                                     }).then(async sub => {
+//                                                         if (sub) {
+//                                                             sub.forEach(async (elsu, isu) => {
+//                                                                 if (isu === sub.length - 1) {
+//                                                                     await SubLoteCommissions.destroy({
+//                                                                         where: {
+//                                                                             id: elsu.id
+//                                                                         },
+//                                                                     }).then(async dsub => {
+//                                                                         await LoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: lote.id
+//                                                                             },
+//                                                                         }).then(comm => {
+//                                                                             res.send({
+//                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                 sucesso: true
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         });
+//                                                                     }).catch(err => {
+//                                                                         res.status(401).send({
+//                                                                             message: err.message,
+//                                                                             sucesso: false
+//                                                                         });
+//                                                                     })
+//                                                                 }
+//                                                                 else {
+//                                                                     SubLoteCommissions.destroy({
+//                                                                         where: {
+//                                                                             id: elsu.id
+//                                                                         },
+//                                                                     })
+//                                                                 }
+//                                                             })
+//                                                         }
+//                                                         else {
+//                                                             await LoteCommissions.destroy({
+//                                                                 where: {
+//                                                                     id: lote.id
+//                                                                 },
+//                                                             }).then(comm => {
+//                                                                 res.send({
+//                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                     sucesso: true
+//                                                                 });
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             });
+//                                                         }
+//                                                     }).catch(err => {
+//                                                         res.status(401).send({
+//                                                             message: err.message,
+//                                                             sucesso: false
+//                                                         });
+//                                                     });
+//                                                 }
+//                                             }).catch(err => {
+//                                                 res.status(401).send({
+//                                                     message: err.message,
+//                                                     sucesso: false
+//                                                 });
+//                                             });
+//                                         });
+//                                 } else {
+//                                     await Commissions.findAll({
+//                                         where: {
+//                                             lote_commissions_ID: lote.id
+//                                         }
+//                                     }).then(async com => {
+//                                         if (com) {
+//                                             com.forEach((eldc, idc) => {
+//                                                 if (idc === com.length - 1) {
+//                                                     Commissions.destroy({
+//                                                         where: {
+//                                                             id: eldc.id
+//                                                         },
+//                                                     }).then(async dco => {
+//                                                         await SubLoteCommissions.findAll({
+//                                                             where: {
+//                                                                 lote_commissions_ID: lote.id
+//                                                             }
+//                                                         }).then(async sub => {
+//                                                             if (sub) {
+//                                                                 sub.forEach(async (elsu, isu) => {
+//                                                                     if (isu === sub.length - 1) {
+//                                                                         await SubLoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: elsu.id
+//                                                                             },
+//                                                                         }).then(async dsub => {
+//                                                                             await LoteCommissions.destroy({
+//                                                                                 where: {
+//                                                                                     id: lote.id
+//                                                                                 },
+//                                                                             }).then(dlo => {
+//                                                                                 res.send({
+//                                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                                     sucesso: true
+//                                                                                 });
+//                                                                             }).catch(err => {
+//                                                                                 res.status(401).send({
+//                                                                                     message: err.message,
+//                                                                                     sucesso: false
+//                                                                                 });
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         })
+//                                                                     }
+//                                                                     else {
+//                                                                         SubLoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: elsu.id
+//                                                                             },
+//                                                                         })
+//                                                                     }
+//                                                                 })
+//                                                             }
+//                                                             else {
+//                                                                 await LoteCommissions.destroy({
+//                                                                     where: {
+//                                                                         id: lote.id
+//                                                                     },
+//                                                                 }).then(comm => {
+//                                                                     res.send({
+//                                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                                         sucesso: true
+//                                                                     });
+//                                                                 }).catch(err => {
+//                                                                     res.status(401).send({
+//                                                                         message: err.message,
+//                                                                         sucesso: false
+//                                                                     });
+//                                                                 });
+//                                                             }
+//                                                         }).catch(err => {
+//                                                             res.status(401).send({
+//                                                                 message: err.message,
+//                                                                 sucesso: false
+//                                                             });
+//                                                         });
+//                                                     }).catch(err => {
+//                                                         res.status(401).send({
+//                                                             message: err.message,
+//                                                             sucesso: false
+//                                                         });
+//                                                     })
+//                                                 }
+//                                                 else {
+//                                                     Commissions.destroy({
+//                                                         where: {
+//                                                             id: eldc.id
+//                                                         },
+//                                                     })
+//                                                 }
+//                                             });
+//                                         } else {
+//                                             await SubLoteCommissions.findAll({
+//                                                 where: {
+//                                                     lote_commissions_ID: lote.id
+//                                                 }
+//                                             }).then(async sub => {
+//                                                 if (sub) {
+//                                                     sub.forEach(async (elsu, isu) => {
+//                                                         if (isu === sub.length - 1) {
+//                                                             await SubLoteCommissions.destroy({
+//                                                                 where: {
+//                                                                     id: elsu.id
+//                                                                 },
+//                                                             }).then(async dsub => {
+//                                                                 await LoteCommissions.destroy({
+//                                                                     where: {
+//                                                                         id: lote.id
+//                                                                     },
+//                                                                 }).then(comm => {
+//                                                                     res.send({
+//                                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                                         sucesso: true
+//                                                                     });
+//                                                                 }).catch(err => {
+//                                                                     res.status(401).send({
+//                                                                         message: err.message,
+//                                                                         sucesso: false
+//                                                                     });
+//                                                                 });
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             })
+//                                                         }
+//                                                         else {
+//                                                             SubLoteCommissions.destroy({
+//                                                                 where: {
+//                                                                     id: elsu.id
+//                                                                 },
+//                                                             })
+//                                                         }
+//                                                     })
+//                                                 }
+//                                                 else {
+//                                                     await LoteCommissions.destroy({
+//                                                         where: {
+//                                                             id: lote.id
+//                                                         },
+//                                                     }).then(comm => {
+//                                                         res.send({
+//                                                             message: "Lote de comissões deletado com sucesso!",
+//                                                             sucesso: true
+//                                                         });
+//                                                     }).catch(err => {
+//                                                         res.status(401).send({
+//                                                             message: err.message,
+//                                                             sucesso: false
+//                                                         });
+//                                                     });
+//                                                 }
+//                                             }).catch(err => {
+//                                                 res.status(401).send({
+//                                                     message: err.message,
+//                                                     sucesso: false
+//                                                 });
+//                                             });
+//                                         }
+//                                     }).catch(err => {
+//                                         res.status(401).send({
+//                                             message: err.message,
+//                                             sucesso: false
+//                                         });
+//                                     });
+//                                 }
+//                             })
+//                             .catch(async err => {
+//                                 await Commissions.findAll({
+//                                     where: {
+//                                         lote_commissions_ID: lote.id
+//                                     }
+//                                 }).then(async com => {
+//                                     if (com) {
+//                                         com.forEach((eldc, idc) => {
+//                                             if (idc === com.length - 1) {
+//                                                 Commissions.destroy({
+//                                                     where: {
+//                                                         id: eldc.id
+//                                                     },
+//                                                 }).then(async dco => {
+//                                                     await SubLoteCommissions.findAll({
+//                                                         where: {
+//                                                             lote_commissions_ID: lote.id
+//                                                         }
+//                                                     }).then(async sub => {
+//                                                         if (sub) {
+//                                                             sub.forEach(async (elsu, isu) => {
+//                                                                 if (isu === sub.length - 1) {
+//                                                                     await SubLoteCommissions.destroy({
+//                                                                         where: {
+//                                                                             id: elsu.id
+//                                                                         },
+//                                                                     }).then(async dsub => {
+//                                                                         await LoteCommissions.destroy({
+//                                                                             where: {
+//                                                                                 id: lote.id
+//                                                                             },
+//                                                                         }).then(dlo => {
+//                                                                             res.send({
+//                                                                                 message: "Lote de comissões deletado com sucesso!",
+//                                                                                 sucesso: true
+//                                                                             });
+//                                                                         }).catch(err => {
+//                                                                             res.status(401).send({
+//                                                                                 message: err.message,
+//                                                                                 sucesso: false
+//                                                                             });
+//                                                                         });
+//                                                                     }).catch(err => {
+//                                                                         res.status(401).send({
+//                                                                             message: err.message,
+//                                                                             sucesso: false
+//                                                                         });
+//                                                                     })
+//                                                                 }
+//                                                                 else {
+//                                                                     SubLoteCommissions.destroy({
+//                                                                         where: {
+//                                                                             id: elsu.id
+//                                                                         },
+//                                                                     })
+//                                                                 }
+//                                                             })
+//                                                         }
+//                                                         else {
+//                                                             await LoteCommissions.destroy({
+//                                                                 where: {
+//                                                                     id: lote.id
+//                                                                 },
+//                                                             }).then(comm => {
+//                                                                 res.send({
+//                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                     sucesso: true
+//                                                                 });
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             });
+//                                                         }
+//                                                     }).catch(err => {
+//                                                         res.status(401).send({
+//                                                             message: err.message,
+//                                                             sucesso: false
+//                                                         });
+//                                                     });
+//                                                 }).catch(err => {
+//                                                     res.status(401).send({
+//                                                         message: err.message,
+//                                                         sucesso: false
+//                                                     });
+//                                                 })
+//                                             }
+//                                             else {
+//                                                 Commissions.destroy({
+//                                                     where: {
+//                                                         id: eldc.id
+//                                                     },
+//                                                 })
+//                                             }
+//                                         });
+//                                     } else {
+//                                         await SubLoteCommissions.findAll({
+//                                             where: {
+//                                                 lote_commissions_ID: lote.id
+//                                             }
+//                                         }).then(async sub => {
+//                                             if (sub) {
+//                                                 sub.forEach(async (elsu, isu) => {
+//                                                     if (isu === sub.length - 1) {
+//                                                         await SubLoteCommissions.destroy({
+//                                                             where: {
+//                                                                 id: elsu.id
+//                                                             },
+//                                                         }).then(async dsub => {
+//                                                             await LoteCommissions.destroy({
+//                                                                 where: {
+//                                                                     id: lote.id
+//                                                                 },
+//                                                             }).then(comm => {
+//                                                                 res.send({
+//                                                                     message: "Lote de comissões deletado com sucesso!",
+//                                                                     sucesso: true
+//                                                                 });
+//                                                             }).catch(err => {
+//                                                                 res.status(401).send({
+//                                                                     message: err.message,
+//                                                                     sucesso: false
+//                                                                 });
+//                                                             });
+//                                                         }).catch(err => {
+//                                                             res.status(401).send({
+//                                                                 message: err.message,
+//                                                                 sucesso: false
+//                                                             });
+//                                                         })
+//                                                     }
+//                                                     else {
+//                                                         SubLoteCommissions.destroy({
+//                                                             where: {
+//                                                                 id: elsu.id
+//                                                             },
+//                                                         })
+//                                                     }
+//                                                 })
+//                                             }
+//                                             else {
+//                                                 await LoteCommissions.destroy({
+//                                                     where: {
+//                                                         id: lote.id
+//                                                     },
+//                                                 }).then(comm => {
+//                                                     res.send({
+//                                                         message: "Lote de comissões deletado com sucesso!",
+//                                                         sucesso: true
+//                                                     });
+//                                                 }).catch(err => {
+//                                                     res.status(401).send({
+//                                                         message: err.message,
+//                                                         sucesso: false
+//                                                     });
+//                                                 });
+//                                             }
+//                                         }).catch(err => {
+//                                             res.status(401).send({
+//                                                 message: err.message,
+//                                                 sucesso: false
+//                                             });
+//                                         });
+//                                     }
+//                                 }).catch(err => {
+//                                     res.status(401).send({
+//                                         message: err.message,
+//                                         sucesso: false
+//                                     });
+//                                 });
+//                             });
+//                     }
+//                     else {
+//                         res.status(401).send({
+//                             message: "Algo deu errado, tente novamente!",
+//                             sucesso: false
+//                         });
+//                     }
+//                 });
+//             } else {
+//                 res.status(401).send({
+//                     message: err.message,
+//                     sucesso: false
+//                 });
+//             }
+//         })
+//         .catch(err => {
+//             res.status(500).send({
+//                 message: err.message,
+//                 sucesso: false
+//             });
+//         });
+// };
+
 exports.addLoteCommissionsDigital = async (req, res) => {
-    const lotecnpj = [];
-    const commissions = req.body.commissions;
-    const estornos = req.body.estornos;
+    // --- helpers definidos localmente ---
+    const asStr2 = (v) => (v == null ? null : Number(Number(v).toFixed(2)).toFixed(2)); // string "0.00"
+    const asNum2 = (v) => Number(Number(v ?? 0).toFixed(2));                            // number com 2 casas
+    const normStr = (v) => (v == null ? '' : String(v));
 
-    let lotecommissionsestornos;
-    if (commissions.length > 0 && estornos.length > 0) {
-        lotecommissionsestornos = await commissions.concat(estornos);
-    }
-    else {
-        if (commissions.length > 0) {
-            lotecommissionsestornos = await commissions;
+    const commissions = Array.isArray(req.body.commissions) ? req.body.commissions : [];
+    const estornos = Array.isArray(req.body.estornos) ? req.body.estornos : [];
+    const loteItems = commissions.length && estornos.length
+        ? commissions.concat(estornos)
+        : (commissions.length ? commissions : estornos);
+
+    // unique CNPJs na mesma lógica do seu lotecnpj
+    const uniqueCNPJs = Array.from(new Set(loteItems.map(e => String(e.corretora_CNPJ))));
+
+    const t = await sequelize.transaction();
+    try {
+        // ===== 1) Cria LOTE =====
+        const lote = await LoteCommissions.create({
+            quantidade: loteItems.length,
+            total_contrato: req.body.totalContrato,         // mantém como vem do body
+            total_provisionado: null,
+            quantidade_commissions: commissions.length,
+            total_commissions: req.body.totalCommissions,   // idem
+            quantidade_estornos: estornos.length,
+            total_estorno: req.body.totalEstornos,          // idem
+            dataInicial: req.body.dataInicial,
+            dataFinal: req.body.dataFinal,
+            data_previsao: req.body.previsao,
+            status_ID: 3,
+            empresa_ID: null,
+            arquivo_URL: '',
+            disabled: false
+        }, { transaction: t });
+
+        // Se por algum motivo não criou
+        if (!lote) {
+            await t.rollback();
+            return res.status(401).send({ message: "Algo deu errado, tente novamente!", sucesso: false });
         }
-        else {
-            lotecommissionsestornos = await estornos;
-        }
-    }
 
-    await lotecommissionsestornos.forEach(async (element, index) => {
-        if (lotecnpj.indexOf(element.corretora_CNPJ) === -1) {
-            lotecnpj.push(element.corretora_CNPJ);
-        }
-    });
+        // ===== 2) Para cada CNPJ, cria SUB-LOTE + COMMISSIONS =====
+        for (const cnpj of uniqueCNPJs) {
+            // mesmo filtro que você fazia na construção de 'commi'
+            const itemsDoCnpj = loteItems.filter(el => String(el.corretora_CNPJ) === String(cnpj));
 
-    await LoteCommissions.create({
-        quantidade: lotecommissionsestornos.length,
-        total_contrato: req.body.totalContrato,
-        total_provisionado: null,
-        quantidade_commissions: commissions.length,
-        total_commissions: req.body.totalCommissions,
-        quantidade_estornos: estornos.length,
-        total_estorno: req.body.totalEstornos,
-        dataInicial: req.body.dataInicial,
-        dataFinal: req.body.dataFinal,
-        data_previsao: req.body.previsao,
-        status_ID: 3,
-        empresa_ID: null,
-        arquivo_URL: '',
-        disabled: false,
-    })
-        .then(async lote => {
-            if (lote) {
-                await lotecnpj.forEach(async (element, index) => {
-                    const commi = [];
-                    let subTotalContrato = 0;
-                    let qntCommissions = 0;
-                    let subtotalCommissions = 0;
-                    let subtotalEstorno = 0;
-                    let qntEstornos = 0;
-                    await lotecommissionsestornos.forEach((el, i) => {
-                        if (String(element) === String(el.corretora_CNPJ)) {
-                            commi.push({
-                                corretora: el.corretora,
-                                corretora_CNPJ: String(el.corretora_CNPJ),
-                                produtor: el.produtor,
-                                nome_contrato: el.nome_contrato,
-                                cpf_cnpj_contrato: el.cpf_cnpj_contrato,
-                                operadora: el.operadora,
-                                modalidade: el.modalidade,
-                                parcela: el.parcela,
-                                percentual_comissao: el.percentual_comissao,
-                                vidas: el.vidas,
-                                valor_contrato: el.valor_contrato ? Number(el.valor_contrato).toFixed(2) : null,
-                                data_previsao: req.body.previsao,
-                                data_pagamento: null,
-                                valor_provisionado: el.valor_provisionado ? Number(el.valor_provisionado).toFixed(2) : null,
-                                situacao_ID: 4,
-                                status_ID: 3,
-                                sub_lote_commissions_ID: null,
-                                lote_commissions_ID: null,
-                                nf_ID: null,
-                                codigoCommissionsDigitalSaude: el.codigoCommissionsDigitalSaude,
-                                valor_estorno: el.valor_estorno ? Number(el.valor_estorno) : null,
-                                tipo: el.tipo,
-                                descricao: el.descricao,
-                                dataLancamento: el.dataLancamento,
-                                codigoProduto: el.codigoProduto,
-                                nomeProduto: el.nomeProduto,
-                                vigencia: el.vigencia,
-                            })
-                            subTotalContrato = Number(Number(subTotalContrato) + Number(el.valor_contrato.toFixed(2))).toFixed(2);
-                            if (el.tipo === 'credito') {
-                                qntCommissions += 1;
-                                subtotalCommissions = Number(Number(subtotalCommissions) + Number(el.valor_provisionado.toFixed(2))).toFixed(2);
-                            }
-                            else {
-                                qntEstornos += 1;
-                                subtotalEstorno = Number(Number(subtotalEstorno) + Number(el.valor_estorno.toFixed(2))).toFixed(2);
-                            }
-                        }
-                    });
-                    if (commi.length > 0) {
-                        await SubLoteCommissions.create({
-                            corretora: commi[0].corretora,
-                            corretora_CNPJ: commi[0].corretora_CNPJ,
-                            quantidade: commi.length,
-                            total_contrato: subTotalContrato,
-                            total_provisionado: null,
-                            quantidade_commissions: qntCommissions,
-                            total_commissions: subtotalCommissions,
-                            quantidade_estornos: qntEstornos,
-                            total_estornos: subtotalEstorno,
-                            data_previsao: req.body.previsao,
-                            data_pagamento: null,
-                            situacao_ID: 4,
-                            status_ID: 3,
-                            lote_commissions_ID: lote.id,
-                            nf_ID: null,
-                            disabled: false,
-                        })
-                            .then(async sublote => {
-                                if (sublote) {
-                                    let sql = 'INSERT INTO `corretora_commissions_sub_lote_lotes` (`sub_lote_ID`, `lote_ID`) VALUES (';
-                                    db.sequelize.query(`${sql}${sublote.id}, ${lote.id})`, { type: db.sequelize.QueryTypes.INSERT })
-                                        .then(async (sublotelote) => {
-                                            await commi.forEach(async (ele, ind) => {
-                                                commi[ind].sub_lote_commissions_ID = sublote.id;
-                                                commi[ind].lote_commissions_ID = lote.id;
-                                                Commissions.create(ele)
-                                                    .then(async co => {
-                                                        if (co) {
-                                                            let sql2 = 'INSERT INTO `corretora_commissions_commission_sub_lote` (`commission_ID`, `sub_lote_ID`) VALUES (';
-                                                            db.sequelize.query(`${sql2}${co.id}, ${sublote.id})`, { type: db.sequelize.QueryTypes.INSERT })
-                                                                .then(async (commissionsublote) => {
-                                                                    if (Number(lotecnpj.length) - 1 === Number(index) && Number(commi.length) - 1 === Number(ind)) {
-                                                                        res.send({
-                                                                            loteCommissions: lote,
-                                                                            message: "Lote de comissões cadastrado com sucesso!",
-                                                                            sucesso: true
-                                                                        });
-                                                                    }
-                                                                })
-                                                                .catch(async err => {
-                                                                    await Commissions.findAll({
-                                                                        where: {
-                                                                            lote_commissions_ID: lote.id
-                                                                        }
-                                                                    }).then(async com => {
-                                                                        if (com) {
-                                                                            com.forEach((eldc, idc) => {
-                                                                                if (idc === com.length - 1) {
-                                                                                    Commissions.destroy({
-                                                                                        where: {
-                                                                                            id: eldc.id
-                                                                                        },
-                                                                                    }).then(async dco => {
-                                                                                        await SubLoteCommissions.findAll({
-                                                                                            where: {
-                                                                                                lote_commissions_ID: lote.id
-                                                                                            }
-                                                                                        }).then(async sub => {
-                                                                                            if (sub) {
-                                                                                                sub.forEach(async (elsu, isu) => {
-                                                                                                    if (isu === sub.length - 1) {
-                                                                                                        await SubLoteCommissions.destroy({
-                                                                                                            where: {
-                                                                                                                id: elsu.id
-                                                                                                            },
-                                                                                                        }).then(async dsub => {
-                                                                                                            await LoteCommissions.destroy({
-                                                                                                                where: {
-                                                                                                                    id: lote.id
-                                                                                                                },
-                                                                                                            }).then(dlo => {
-                                                                                                                res.send({
-                                                                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                                                                    sucesso: true
-                                                                                                                });
-                                                                                                            }).catch(err => {
-                                                                                                                res.status(401).send({
-                                                                                                                    message: err.message,
-                                                                                                                    sucesso: false
-                                                                                                                });
-                                                                                                            });
-                                                                                                        }).catch(err => {
-                                                                                                            res.status(401).send({
-                                                                                                                message: err.message,
-                                                                                                                sucesso: false
-                                                                                                            });
-                                                                                                        })
-                                                                                                    }
-                                                                                                    else {
-                                                                                                        SubLoteCommissions.destroy({
-                                                                                                            where: {
-                                                                                                                id: elsu.id
-                                                                                                            },
-                                                                                                        })
-                                                                                                    }
-                                                                                                })
-                                                                                            }
-                                                                                            else {
-                                                                                                await LoteCommissions.destroy({
-                                                                                                    where: {
-                                                                                                        id: lote.id
-                                                                                                    },
-                                                                                                }).then(comm => {
-                                                                                                    res.send({
-                                                                                                        message: "Lote de comissões deletado com sucesso!",
-                                                                                                        sucesso: true
-                                                                                                    });
-                                                                                                }).catch(err => {
-                                                                                                    res.status(401).send({
-                                                                                                        message: err.message,
-                                                                                                        sucesso: false
-                                                                                                    });
-                                                                                                });
-                                                                                            }
-                                                                                        }).catch(err => {
-                                                                                            res.status(401).send({
-                                                                                                message: err.message,
-                                                                                                sucesso: false
-                                                                                            });
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    })
-                                                                                }
-                                                                                else {
-                                                                                    Commissions.destroy({
-                                                                                        where: {
-                                                                                            id: eldc.id
-                                                                                        },
-                                                                                    })
-                                                                                }
-                                                                            });
-                                                                        } else {
-                                                                            await SubLoteCommissions.findAll({
-                                                                                where: {
-                                                                                    lote_commissions_ID: lote.id
-                                                                                }
-                                                                            }).then(async sub => {
-                                                                                if (sub) {
-                                                                                    sub.forEach(async (elsu, isu) => {
-                                                                                        if (isu === sub.length - 1) {
-                                                                                            await SubLoteCommissions.destroy({
-                                                                                                where: {
-                                                                                                    id: elsu.id
-                                                                                                },
-                                                                                            }).then(async dsub => {
-                                                                                                await LoteCommissions.destroy({
-                                                                                                    where: {
-                                                                                                        id: lote.id
-                                                                                                    },
-                                                                                                }).then(comm => {
-                                                                                                    res.send({
-                                                                                                        message: "Lote de comissões deletado com sucesso!",
-                                                                                                        sucesso: true
-                                                                                                    });
-                                                                                                }).catch(err => {
-                                                                                                    res.status(401).send({
-                                                                                                        message: err.message,
-                                                                                                        sucesso: false
-                                                                                                    });
-                                                                                                });
-                                                                                            }).catch(err => {
-                                                                                                res.status(401).send({
-                                                                                                    message: err.message,
-                                                                                                    sucesso: false
-                                                                                                });
-                                                                                            })
-                                                                                        }
-                                                                                        else {
-                                                                                            SubLoteCommissions.destroy({
-                                                                                                where: {
-                                                                                                    id: elsu.id
-                                                                                                },
-                                                                                            })
-                                                                                        }
-                                                                                    })
-                                                                                }
-                                                                                else {
-                                                                                    await LoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: lote.id
-                                                                                        },
-                                                                                    }).then(comm => {
-                                                                                        res.send({
-                                                                                            message: "Lote de comissões deletado com sucesso!",
-                                                                                            sucesso: true
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    });
-                                                                                }
-                                                                            }).catch(err => {
-                                                                                res.status(401).send({
-                                                                                    message: err.message,
-                                                                                    sucesso: false
-                                                                                });
-                                                                            });
-                                                                        }
-                                                                    }).catch(err => {
-                                                                        res.status(401).send({
-                                                                            message: err.message,
-                                                                            sucesso: false
-                                                                        });
-                                                                    });
-                                                                });
+            if (!itemsDoCnpj.length) continue;
 
-                                                        } else {
-                                                            await Commissions.findAll({
-                                                                where: {
-                                                                    lote_commissions_ID: lote.id
-                                                                }
-                                                            }).then(async com => {
-                                                                if (com) {
-                                                                    com.forEach((eldc, idc) => {
-                                                                        if (idc === com.length - 1) {
-                                                                            Commissions.destroy({
-                                                                                where: {
-                                                                                    id: eldc.id
-                                                                                },
-                                                                            }).then(async dco => {
-                                                                                await SubLoteCommissions.findAll({
-                                                                                    where: {
-                                                                                        lote_commissions_ID: lote.id
-                                                                                    }
-                                                                                }).then(async sub => {
-                                                                                    if (sub) {
-                                                                                        sub.forEach(async (elsu, isu) => {
-                                                                                            if (isu === sub.length - 1) {
-                                                                                                await SubLoteCommissions.destroy({
-                                                                                                    where: {
-                                                                                                        id: elsu.id
-                                                                                                    },
-                                                                                                }).then(async dsub => {
-                                                                                                    await LoteCommissions.destroy({
-                                                                                                        where: {
-                                                                                                            id: lote.id
-                                                                                                        },
-                                                                                                    }).then(dlo => {
-                                                                                                        res.send({
-                                                                                                            message: "Lote de comissões deletado com sucesso!",
-                                                                                                            sucesso: true
-                                                                                                        });
-                                                                                                    }).catch(err => {
-                                                                                                        res.status(401).send({
-                                                                                                            message: err.message,
-                                                                                                            sucesso: false
-                                                                                                        });
-                                                                                                    });
-                                                                                                }).catch(err => {
-                                                                                                    res.status(401).send({
-                                                                                                        message: err.message,
-                                                                                                        sucesso: false
-                                                                                                    });
-                                                                                                })
-                                                                                            }
-                                                                                            else {
-                                                                                                SubLoteCommissions.destroy({
-                                                                                                    where: {
-                                                                                                        id: elsu.id
-                                                                                                    },
-                                                                                                })
-                                                                                            }
-                                                                                        })
-                                                                                    }
-                                                                                    else {
-                                                                                        await LoteCommissions.destroy({
-                                                                                            where: {
-                                                                                                id: lote.id
-                                                                                            },
-                                                                                        }).then(comm => {
-                                                                                            res.send({
-                                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                                sucesso: true
-                                                                                            });
-                                                                                        }).catch(err => {
-                                                                                            res.status(401).send({
-                                                                                                message: err.message,
-                                                                                                sucesso: false
-                                                                                            });
-                                                                                        });
-                                                                                    }
-                                                                                }).catch(err => {
-                                                                                    res.status(401).send({
-                                                                                        message: err.message,
-                                                                                        sucesso: false
-                                                                                    });
-                                                                                });
-                                                                            }).catch(err => {
-                                                                                res.status(401).send({
-                                                                                    message: err.message,
-                                                                                    sucesso: false
-                                                                                });
-                                                                            })
-                                                                        }
-                                                                        else {
-                                                                            Commissions.destroy({
-                                                                                where: {
-                                                                                    id: eldc.id
-                                                                                },
-                                                                            })
-                                                                        }
-                                                                    });
-                                                                } else {
-                                                                    await SubLoteCommissions.findAll({
-                                                                        where: {
-                                                                            lote_commissions_ID: lote.id
-                                                                        }
-                                                                    }).then(async sub => {
-                                                                        if (sub) {
-                                                                            sub.forEach(async (elsu, isu) => {
-                                                                                if (isu === sub.length - 1) {
-                                                                                    await SubLoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: elsu.id
-                                                                                        },
-                                                                                    }).then(async dsub => {
-                                                                                        await LoteCommissions.destroy({
-                                                                                            where: {
-                                                                                                id: lote.id
-                                                                                            },
-                                                                                        }).then(comm => {
-                                                                                            res.send({
-                                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                                sucesso: true
-                                                                                            });
-                                                                                        }).catch(err => {
-                                                                                            res.status(401).send({
-                                                                                                message: err.message,
-                                                                                                sucesso: false
-                                                                                            });
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    })
-                                                                                }
-                                                                                else {
-                                                                                    SubLoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: elsu.id
-                                                                                        },
-                                                                                    })
-                                                                                }
-                                                                            })
-                                                                        }
-                                                                        else {
-                                                                            await LoteCommissions.destroy({
-                                                                                where: {
-                                                                                    id: lote.id
-                                                                                },
-                                                                            }).then(comm => {
-                                                                                res.send({
-                                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                                    sucesso: true
-                                                                                });
-                                                                            }).catch(err => {
-                                                                                res.status(401).send({
-                                                                                    message: err.message,
-                                                                                    sucesso: false
-                                                                                });
-                                                                            });
-                                                                        }
-                                                                    }).catch(err => {
-                                                                        res.status(401).send({
-                                                                            message: err.message,
-                                                                            sucesso: false
-                                                                        });
-                                                                    });
-                                                                }
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            });
-                                                        }
-                                                    })
-                                                    .catch(async err => {
-                                                        await Commissions.findAll({
-                                                            where: {
-                                                                lote_commissions_ID: lote.id
-                                                            }
-                                                        }).then(async com => {
-                                                            if (com) {
-                                                                com.forEach((eldc, idc) => {
-                                                                    if (idc === com.length - 1) {
-                                                                        Commissions.destroy({
-                                                                            where: {
-                                                                                id: eldc.id
-                                                                            },
-                                                                        }).then(async dco => {
-                                                                            await SubLoteCommissions.findAll({
-                                                                                where: {
-                                                                                    lote_commissions_ID: lote.id
-                                                                                }
-                                                                            }).then(async sub => {
-                                                                                if (sub) {
-                                                                                    sub.forEach(async (elsu, isu) => {
-                                                                                        if (isu === sub.length - 1) {
-                                                                                            await SubLoteCommissions.destroy({
-                                                                                                where: {
-                                                                                                    id: elsu.id
-                                                                                                },
-                                                                                            }).then(async dsub => {
-                                                                                                await LoteCommissions.destroy({
-                                                                                                    where: {
-                                                                                                        id: lote.id
-                                                                                                    },
-                                                                                                }).then(dlo => {
-                                                                                                    res.send({
-                                                                                                        message: "Lote de comissões deletado com sucesso!",
-                                                                                                        sucesso: true
-                                                                                                    });
-                                                                                                }).catch(err => {
-                                                                                                    res.status(401).send({
-                                                                                                        message: err.message,
-                                                                                                        sucesso: false
-                                                                                                    });
-                                                                                                });
-                                                                                            }).catch(err => {
-                                                                                                res.status(401).send({
-                                                                                                    message: err.message,
-                                                                                                    sucesso: false
-                                                                                                });
-                                                                                            })
-                                                                                        }
-                                                                                        else {
-                                                                                            SubLoteCommissions.destroy({
-                                                                                                where: {
-                                                                                                    id: elsu.id
-                                                                                                },
-                                                                                            })
-                                                                                        }
-                                                                                    })
-                                                                                }
-                                                                                else {
-                                                                                    await LoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: lote.id
-                                                                                        },
-                                                                                    }).then(comm => {
-                                                                                        res.send({
-                                                                                            message: "Lote de comissões deletado com sucesso!",
-                                                                                            sucesso: true
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    });
-                                                                                }
-                                                                            }).catch(err => {
-                                                                                res.status(401).send({
-                                                                                    message: err.message,
-                                                                                    sucesso: false
-                                                                                });
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        })
-                                                                    }
-                                                                    else {
-                                                                        Commissions.destroy({
-                                                                            where: {
-                                                                                id: eldc.id
-                                                                            },
-                                                                        })
-                                                                    }
-                                                                });
-                                                            } else {
-                                                                await SubLoteCommissions.findAll({
-                                                                    where: {
-                                                                        lote_commissions_ID: lote.id
-                                                                    }
-                                                                }).then(async sub => {
-                                                                    if (sub) {
-                                                                        sub.forEach(async (elsu, isu) => {
-                                                                            if (isu === sub.length - 1) {
-                                                                                await SubLoteCommissions.destroy({
-                                                                                    where: {
-                                                                                        id: elsu.id
-                                                                                    },
-                                                                                }).then(async dsub => {
-                                                                                    await LoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: lote.id
-                                                                                        },
-                                                                                    }).then(comm => {
-                                                                                        res.send({
-                                                                                            message: "Lote de comissões deletado com sucesso!",
-                                                                                            sucesso: true
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    });
-                                                                                }).catch(err => {
-                                                                                    res.status(401).send({
-                                                                                        message: err.message,
-                                                                                        sucesso: false
-                                                                                    });
-                                                                                })
-                                                                            }
-                                                                            else {
-                                                                                SubLoteCommissions.destroy({
-                                                                                    where: {
-                                                                                        id: elsu.id
-                                                                                    },
-                                                                                })
-                                                                            }
-                                                                        })
-                                                                    }
-                                                                    else {
-                                                                        await LoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: lote.id
-                                                                            },
-                                                                        }).then(comm => {
-                                                                            res.send({
-                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                sucesso: true
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        });
-                                                                    }
-                                                                }).catch(err => {
-                                                                    res.status(401).send({
-                                                                        message: err.message,
-                                                                        sucesso: false
-                                                                    });
-                                                                });
-                                                            }
-                                                        }).catch(err => {
-                                                            res.status(401).send({
-                                                                message: err.message,
-                                                                sucesso: false
-                                                            });
-                                                        });
-                                                    });
-                                            });
-                                        })
-                                        .catch(async err => {
-                                            await Commissions.findAll({
-                                                where: {
-                                                    lote_commissions_ID: lote.id
-                                                }
-                                            }).then(async com => {
-                                                if (com) {
-                                                    com.forEach((eldc, idc) => {
-                                                        if (idc === com.length - 1) {
-                                                            Commissions.destroy({
-                                                                where: {
-                                                                    id: eldc.id
-                                                                },
-                                                            }).then(async dco => {
-                                                                await SubLoteCommissions.findAll({
-                                                                    where: {
-                                                                        lote_commissions_ID: lote.id
-                                                                    }
-                                                                }).then(async sub => {
-                                                                    if (sub) {
-                                                                        sub.forEach(async (elsu, isu) => {
-                                                                            if (isu === sub.length - 1) {
-                                                                                await SubLoteCommissions.destroy({
-                                                                                    where: {
-                                                                                        id: elsu.id
-                                                                                    },
-                                                                                }).then(async dsub => {
-                                                                                    await LoteCommissions.destroy({
-                                                                                        where: {
-                                                                                            id: lote.id
-                                                                                        },
-                                                                                    }).then(dlo => {
-                                                                                        res.send({
-                                                                                            message: "Lote de comissões deletado com sucesso!",
-                                                                                            sucesso: true
-                                                                                        });
-                                                                                    }).catch(err => {
-                                                                                        res.status(401).send({
-                                                                                            message: err.message,
-                                                                                            sucesso: false
-                                                                                        });
-                                                                                    });
-                                                                                }).catch(err => {
-                                                                                    res.status(401).send({
-                                                                                        message: err.message,
-                                                                                        sucesso: false
-                                                                                    });
-                                                                                })
-                                                                            }
-                                                                            else {
-                                                                                SubLoteCommissions.destroy({
-                                                                                    where: {
-                                                                                        id: elsu.id
-                                                                                    },
-                                                                                })
-                                                                            }
-                                                                        })
-                                                                    }
-                                                                    else {
-                                                                        await LoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: lote.id
-                                                                            },
-                                                                        }).then(comm => {
-                                                                            res.send({
-                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                sucesso: true
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        });
-                                                                    }
-                                                                }).catch(err => {
-                                                                    res.status(401).send({
-                                                                        message: err.message,
-                                                                        sucesso: false
-                                                                    });
-                                                                });
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            })
-                                                        }
-                                                        else {
-                                                            Commissions.destroy({
-                                                                where: {
-                                                                    id: eldc.id
-                                                                },
-                                                            })
-                                                        }
-                                                    });
-                                                } else {
-                                                    await SubLoteCommissions.findAll({
-                                                        where: {
-                                                            lote_commissions_ID: lote.id
-                                                        }
-                                                    }).then(async sub => {
-                                                        if (sub) {
-                                                            sub.forEach(async (elsu, isu) => {
-                                                                if (isu === sub.length - 1) {
-                                                                    await SubLoteCommissions.destroy({
-                                                                        where: {
-                                                                            id: elsu.id
-                                                                        },
-                                                                    }).then(async dsub => {
-                                                                        await LoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: lote.id
-                                                                            },
-                                                                        }).then(comm => {
-                                                                            res.send({
-                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                sucesso: true
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        });
-                                                                    }).catch(err => {
-                                                                        res.status(401).send({
-                                                                            message: err.message,
-                                                                            sucesso: false
-                                                                        });
-                                                                    })
-                                                                }
-                                                                else {
-                                                                    SubLoteCommissions.destroy({
-                                                                        where: {
-                                                                            id: elsu.id
-                                                                        },
-                                                                    })
-                                                                }
-                                                            })
-                                                        }
-                                                        else {
-                                                            await LoteCommissions.destroy({
-                                                                where: {
-                                                                    id: lote.id
-                                                                },
-                                                            }).then(comm => {
-                                                                res.send({
-                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                    sucesso: true
-                                                                });
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            });
-                                                        }
-                                                    }).catch(err => {
-                                                        res.status(401).send({
-                                                            message: err.message,
-                                                            sucesso: false
-                                                        });
-                                                    });
-                                                }
-                                            }).catch(err => {
-                                                res.status(401).send({
-                                                    message: err.message,
-                                                    sucesso: false
-                                                });
-                                            });
-                                        });
-                                } else {
-                                    await Commissions.findAll({
-                                        where: {
-                                            lote_commissions_ID: lote.id
-                                        }
-                                    }).then(async com => {
-                                        if (com) {
-                                            com.forEach((eldc, idc) => {
-                                                if (idc === com.length - 1) {
-                                                    Commissions.destroy({
-                                                        where: {
-                                                            id: eldc.id
-                                                        },
-                                                    }).then(async dco => {
-                                                        await SubLoteCommissions.findAll({
-                                                            where: {
-                                                                lote_commissions_ID: lote.id
-                                                            }
-                                                        }).then(async sub => {
-                                                            if (sub) {
-                                                                sub.forEach(async (elsu, isu) => {
-                                                                    if (isu === sub.length - 1) {
-                                                                        await SubLoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: elsu.id
-                                                                            },
-                                                                        }).then(async dsub => {
-                                                                            await LoteCommissions.destroy({
-                                                                                where: {
-                                                                                    id: lote.id
-                                                                                },
-                                                                            }).then(dlo => {
-                                                                                res.send({
-                                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                                    sucesso: true
-                                                                                });
-                                                                            }).catch(err => {
-                                                                                res.status(401).send({
-                                                                                    message: err.message,
-                                                                                    sucesso: false
-                                                                                });
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        })
-                                                                    }
-                                                                    else {
-                                                                        SubLoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: elsu.id
-                                                                            },
-                                                                        })
-                                                                    }
-                                                                })
-                                                            }
-                                                            else {
-                                                                await LoteCommissions.destroy({
-                                                                    where: {
-                                                                        id: lote.id
-                                                                    },
-                                                                }).then(comm => {
-                                                                    res.send({
-                                                                        message: "Lote de comissões deletado com sucesso!",
-                                                                        sucesso: true
-                                                                    });
-                                                                }).catch(err => {
-                                                                    res.status(401).send({
-                                                                        message: err.message,
-                                                                        sucesso: false
-                                                                    });
-                                                                });
-                                                            }
-                                                        }).catch(err => {
-                                                            res.status(401).send({
-                                                                message: err.message,
-                                                                sucesso: false
-                                                            });
-                                                        });
-                                                    }).catch(err => {
-                                                        res.status(401).send({
-                                                            message: err.message,
-                                                            sucesso: false
-                                                        });
-                                                    })
-                                                }
-                                                else {
-                                                    Commissions.destroy({
-                                                        where: {
-                                                            id: eldc.id
-                                                        },
-                                                    })
-                                                }
-                                            });
-                                        } else {
-                                            await SubLoteCommissions.findAll({
-                                                where: {
-                                                    lote_commissions_ID: lote.id
-                                                }
-                                            }).then(async sub => {
-                                                if (sub) {
-                                                    sub.forEach(async (elsu, isu) => {
-                                                        if (isu === sub.length - 1) {
-                                                            await SubLoteCommissions.destroy({
-                                                                where: {
-                                                                    id: elsu.id
-                                                                },
-                                                            }).then(async dsub => {
-                                                                await LoteCommissions.destroy({
-                                                                    where: {
-                                                                        id: lote.id
-                                                                    },
-                                                                }).then(comm => {
-                                                                    res.send({
-                                                                        message: "Lote de comissões deletado com sucesso!",
-                                                                        sucesso: true
-                                                                    });
-                                                                }).catch(err => {
-                                                                    res.status(401).send({
-                                                                        message: err.message,
-                                                                        sucesso: false
-                                                                    });
-                                                                });
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            })
-                                                        }
-                                                        else {
-                                                            SubLoteCommissions.destroy({
-                                                                where: {
-                                                                    id: elsu.id
-                                                                },
-                                                            })
-                                                        }
-                                                    })
-                                                }
-                                                else {
-                                                    await LoteCommissions.destroy({
-                                                        where: {
-                                                            id: lote.id
-                                                        },
-                                                    }).then(comm => {
-                                                        res.send({
-                                                            message: "Lote de comissões deletado com sucesso!",
-                                                            sucesso: true
-                                                        });
-                                                    }).catch(err => {
-                                                        res.status(401).send({
-                                                            message: err.message,
-                                                            sucesso: false
-                                                        });
-                                                    });
-                                                }
-                                            }).catch(err => {
-                                                res.status(401).send({
-                                                    message: err.message,
-                                                    sucesso: false
-                                                });
-                                            });
-                                        }
-                                    }).catch(err => {
-                                        res.status(401).send({
-                                            message: err.message,
-                                            sucesso: false
-                                        });
-                                    });
-                                }
-                            })
-                            .catch(async err => {
-                                await Commissions.findAll({
-                                    where: {
-                                        lote_commissions_ID: lote.id
-                                    }
-                                }).then(async com => {
-                                    if (com) {
-                                        com.forEach((eldc, idc) => {
-                                            if (idc === com.length - 1) {
-                                                Commissions.destroy({
-                                                    where: {
-                                                        id: eldc.id
-                                                    },
-                                                }).then(async dco => {
-                                                    await SubLoteCommissions.findAll({
-                                                        where: {
-                                                            lote_commissions_ID: lote.id
-                                                        }
-                                                    }).then(async sub => {
-                                                        if (sub) {
-                                                            sub.forEach(async (elsu, isu) => {
-                                                                if (isu === sub.length - 1) {
-                                                                    await SubLoteCommissions.destroy({
-                                                                        where: {
-                                                                            id: elsu.id
-                                                                        },
-                                                                    }).then(async dsub => {
-                                                                        await LoteCommissions.destroy({
-                                                                            where: {
-                                                                                id: lote.id
-                                                                            },
-                                                                        }).then(dlo => {
-                                                                            res.send({
-                                                                                message: "Lote de comissões deletado com sucesso!",
-                                                                                sucesso: true
-                                                                            });
-                                                                        }).catch(err => {
-                                                                            res.status(401).send({
-                                                                                message: err.message,
-                                                                                sucesso: false
-                                                                            });
-                                                                        });
-                                                                    }).catch(err => {
-                                                                        res.status(401).send({
-                                                                            message: err.message,
-                                                                            sucesso: false
-                                                                        });
-                                                                    })
-                                                                }
-                                                                else {
-                                                                    SubLoteCommissions.destroy({
-                                                                        where: {
-                                                                            id: elsu.id
-                                                                        },
-                                                                    })
-                                                                }
-                                                            })
-                                                        }
-                                                        else {
-                                                            await LoteCommissions.destroy({
-                                                                where: {
-                                                                    id: lote.id
-                                                                },
-                                                            }).then(comm => {
-                                                                res.send({
-                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                    sucesso: true
-                                                                });
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            });
-                                                        }
-                                                    }).catch(err => {
-                                                        res.status(401).send({
-                                                            message: err.message,
-                                                            sucesso: false
-                                                        });
-                                                    });
-                                                }).catch(err => {
-                                                    res.status(401).send({
-                                                        message: err.message,
-                                                        sucesso: false
-                                                    });
-                                                })
-                                            }
-                                            else {
-                                                Commissions.destroy({
-                                                    where: {
-                                                        id: eldc.id
-                                                    },
-                                                })
-                                            }
-                                        });
-                                    } else {
-                                        await SubLoteCommissions.findAll({
-                                            where: {
-                                                lote_commissions_ID: lote.id
-                                            }
-                                        }).then(async sub => {
-                                            if (sub) {
-                                                sub.forEach(async (elsu, isu) => {
-                                                    if (isu === sub.length - 1) {
-                                                        await SubLoteCommissions.destroy({
-                                                            where: {
-                                                                id: elsu.id
-                                                            },
-                                                        }).then(async dsub => {
-                                                            await LoteCommissions.destroy({
-                                                                where: {
-                                                                    id: lote.id
-                                                                },
-                                                            }).then(comm => {
-                                                                res.send({
-                                                                    message: "Lote de comissões deletado com sucesso!",
-                                                                    sucesso: true
-                                                                });
-                                                            }).catch(err => {
-                                                                res.status(401).send({
-                                                                    message: err.message,
-                                                                    sucesso: false
-                                                                });
-                                                            });
-                                                        }).catch(err => {
-                                                            res.status(401).send({
-                                                                message: err.message,
-                                                                sucesso: false
-                                                            });
-                                                        })
-                                                    }
-                                                    else {
-                                                        SubLoteCommissions.destroy({
-                                                            where: {
-                                                                id: elsu.id
-                                                            },
-                                                        })
-                                                    }
-                                                })
-                                            }
-                                            else {
-                                                await LoteCommissions.destroy({
-                                                    where: {
-                                                        id: lote.id
-                                                    },
-                                                }).then(comm => {
-                                                    res.send({
-                                                        message: "Lote de comissões deletado com sucesso!",
-                                                        sucesso: true
-                                                    });
-                                                }).catch(err => {
-                                                    res.status(401).send({
-                                                        message: err.message,
-                                                        sucesso: false
-                                                    });
-                                                });
-                                            }
-                                        }).catch(err => {
-                                            res.status(401).send({
-                                                message: err.message,
-                                                sucesso: false
-                                            });
-                                        });
-                                    }
-                                }).catch(err => {
-                                    res.status(401).send({
-                                        message: err.message,
-                                        sucesso: false
-                                    });
-                                });
-                            });
-                    }
-                    else {
-                        res.status(401).send({
-                            message: "Algo deu errado, tente novamente!",
-                            sucesso: false
-                        });
-                    }
+            // Monta registros de commission (mesmos campos e conversões do seu código)
+            const commi = [];
+            let subTotalContrato = 0;       // number para somatória
+            let qntCommissions = 0;
+            let subtotalCommissions = 0;    // number
+            let subtotalEstorno = 0;    // number
+            let qntEstornos = 0;
+
+            for (const el of itemsDoCnpj) {
+                commi.push({
+                    corretora: el.corretora,
+                    corretora_CNPJ: String(el.corretora_CNPJ),
+                    produtor: el.produtor,
+                    nome_contrato: el.nome_contrato,
+                    cpf_cnpj_contrato: el.cpf_cnpj_contrato,
+                    operadora: el.operadora,
+                    modalidade: el.modalidade,
+                    parcela: el.parcela,
+                    percentual_comissao: el.percentual_comissao,
+                    vidas: el.vidas,
+                    // mantém o mesmo comportamento: grava string "0.00" quando existe
+                    valor_contrato: el.valor_contrato != null ? asStr2(el.valor_contrato) : null,
+                    data_previsao: req.body.previsao,
+                    data_pagamento: null,
+                    valor_provisionado: el.valor_provisionado != null ? asStr2(el.valor_provisionado) : null,
+                    situacao_ID: 4,
+                    status_ID: 3,
+                    sub_lote_commissions_ID: null, // setaremos após criar o sublote
+                    lote_commissions_ID: null,     // setaremos após criar o sublote
+                    nf_ID: null,
+                    codigoCommissionsDigitalSaude: el.codigoCommissionsDigitalSaude,
+                    // no seu código você grava Number(el.valor_estorno) sem toFixed
+                    valor_estorno: el.valor_estorno != null ? Number(el.valor_estorno) : null,
+                    tipo: el.tipo,
+                    descricao: el.descricao,
+                    dataLancamento: el.dataLancamento,
+                    codigoProduto: el.codigoProduto,
+                    nomeProduto: el.nomeProduto,
+                    vigencia: el.vigencia
                 });
-            } else {
-                res.status(401).send({
-                    message: err.message,
-                    sucesso: false
-                });
+
+                // somatórios — replicando sua lógica (somava toFixed de cada item)
+                if (el.valor_contrato != null) {
+                    subTotalContrato = asNum2(subTotalContrato + asNum2(el.valor_contrato));
+                }
+                if (el.tipo === 'credito') {
+                    qntCommissions += 1;
+                    if (el.valor_provisionado != null) {
+                        subtotalCommissions = asNum2(subtotalCommissions + asNum2(el.valor_provisionado));
+                    }
+                } else {
+                    qntEstornos += 1;
+                    if (el.valor_estorno != null) {
+                        // você somava Number(el.valor_estorno.toFixed(2)) implicitamente: replico com asNum2
+                        subtotalEstorno = asNum2(subtotalEstorno + asNum2(el.valor_estorno));
+                    }
+                }
             }
-        })
-        .catch(err => {
-            res.status(500).send({
-                message: err.message,
-                sucesso: false
+
+            // ===== 2a) Cria SUB-LOTE =====
+            const sublote = await SubLoteCommissions.create({
+                corretora: commi[0].corretora,
+                corretora_CNPJ: commi[0].corretora_CNPJ,
+                quantidade: commi.length,
+                total_contrato: asStr2(subTotalContrato), // seu código salvava string com 2 casas
+                total_provisionado: null,
+                quantidade_commissions: qntCommissions,
+                total_commissions: asStr2(subtotalCommissions),
+                quantidade_estornos: qntEstornos,
+                total_estornos: asStr2(subtotalEstorno),
+                data_previsao: req.body.previsao,
+                data_pagamento: null,
+                situacao_ID: 4,
+                status_ID: 3,
+                lote_commissions_ID: lote.id,
+                nf_ID: null,
+                disabled: false
+            }, { transaction: t });
+
+            if (!sublote) {
+                // falhou: rollback geral (equivale à sua longa limpeza)
+                await t.rollback();
+                return res.status(401).send({ message: "Algo deu errado, tente novamente!", sucesso: false });
+            }
+
+            // ===== 2b) Vincula sublote <-> lote na tabela de junção (igual ao seu SQL) =====
+            await sequelize.query(
+                'INSERT INTO `corretora_commissions_sub_lote_lotes` (`sub_lote_ID`, `lote_ID`) VALUES (?, ?)',
+                { replacements: [sublote.id, lote.id], type: QueryTypes.INSERT, transaction: t }
+            );
+
+            // ===== 2c) Cria COMMISSIONS do sublote =====
+            // adiciona os IDs de relação antes de criar (igual ao seu fluxo, só que implícito)
+            const commiToCreate = commi.map(c => ({
+                ...c,
+                sub_lote_commissions_ID: sublote.id,
+                lote_commissions_ID: lote.id
+            }));
+
+            // Você criava 1 a 1; aqui podemos criar em lote (mesmo resultado, mais robusto)
+            const created = await Commissions.bulkCreate(commiToCreate, {
+                transaction: t,
+                returning: true
             });
+
+            // ===== 2d) Vincula cada commission ao sublote na tabela de junção (igual ao seu SQL) =====
+            if (created && created.length) {
+                // bulk insert na tabela de junção
+                // Obs.: se seu MySQL não suportar multi values muito grandes, faça em chunks
+                const valuesSql = created.map(() => '(?, ?)').join(',');
+                const repl = [];
+                for (const c of created) {
+                    repl.push(c.id, sublote.id);
+                }
+                await sequelize.query(
+                    `INSERT INTO \`corretora_commissions_commission_sub_lote\` (\`commission_ID\`, \`sub_lote_ID\`) VALUES ${valuesSql}`,
+                    { replacements: repl, type: QueryTypes.INSERT, transaction: t }
+                );
+            }
+        }
+
+        // ===== 3) Commit e resposta (equivale ao “último índice” do seu código) =====
+        await t.commit();
+        return res.send({
+            loteCommissions: { id: lote.id, ...lote.toJSON?.() },
+            message: "Lote de comissões cadastrado com sucesso!",
+            sucesso: true
         });
+
+    } catch (err) {
+        // qualquer erro, rollback e responde como você fazia
+        try { await t.rollback(); } catch (_) { }
+        return res.status(500).send({ message: err.message, sucesso: false });
+    }
 };
 
 exports.updateLoteCommissions = async (req, res) => {

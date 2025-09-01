@@ -28,10 +28,13 @@ const TEXT_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo';
 const VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
 
 const PDFTOPPM_PATH = process.env.PDFTOPPM_PATH || null; // ex: C:\Program Files\poppler\bin\pdftoppm.exe
-const POPPLER_BIN = process.env.POPPLER_BIN || null;   // ex: C:\Program Files\poppler\bin
+const POPPLER_BIN = process.env.POPPLER_BIN || null;     // ex: C:\Program Files\poppler\bin
 const VISION_PAGES = Math.max(1, Math.min(2, parseInt(process.env.NF_VISION_PAGES || '2', 10)));
 const VISION_SCALE_TO = parseInt(process.env.NF_VISION_SCALE_TO || '2000', 10);
 const VISION_DPI = parseInt(process.env.NF_VISION_DPI || '0', 10);
+
+/* ——— NEW: flag para ligar/desligar cross-check por visão ——— */
+const VISION_CROSSCHECK = (process.env.NF_VISION_CROSSCHECK || 'true').toLowerCase() === 'true';
 
 /* ========================= Helpers ========================= */
 const onlyDigits = (s = '') => String(s).replace(/\D/g, '');
@@ -39,23 +42,18 @@ const onlyDigits = (s = '') => String(s).replace(/\D/g, '');
 /** Normaliza dinheiro com suporte a pt-BR e en-US. */
 function normalizeMoneySmart(input) {
     if (input === null || input === undefined) return null;
-
     if (typeof input === 'number' && Number.isFinite(input)) {
         return Number(input.toFixed(2));
     }
-
     let s = String(input)
         .replace(/\u00A0/g, ' ')
         .replace(/[Rr]\$\s?/g, '')
         .trim()
         .replace(/\s+/g, '');
-
     const hasDot = s.includes('.');
     const hasComma = s.includes(',');
-
     const ptPattern = /^\d{1,3}(?:\.\d{3})+(?:,\d{2})$/;  // 1.234,56
     const usPattern = /^\d{1,3}(?:,\d{3})+(?:\.\d{2})$/;  // 1,234.56
-
     if (ptPattern.test(s)) {
         s = s.replace(/\./g, '').replace(',', '.');
     } else if (usPattern.test(s)) {
@@ -74,7 +72,6 @@ function normalizeMoneySmart(input) {
             s = s.replace(/\./g, '');
         }
     }
-
     const n = Number(s);
     return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
 }
@@ -92,16 +89,13 @@ function parseMoneyPtBR(line) {
 function parseMoneyAny(line) {
     if (!line) return null;
     const s = String(line);
-
     const pt = s.match(/(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/);
     if (pt) return parseMoneyPtBR(s);
-
     const us = s.match(/(?:R\$\s*)?(\d{1,3}(?:,\d{3})+\.\d{2})(?!\d)/);
     if (us) {
         const n = Number(us[1].replace(/,/g, ''));
         return Number.isFinite(n) ? n.toFixed(2) : null;
     }
-
     const simple = s.match(/(?:R\$\s*)?(\d+\.\d{2})(?!\d)/);
     if (simple) {
         const n = Number(simple[1]);
@@ -188,7 +182,6 @@ function soDia(d) { if (!(d instanceof Date) || isNaN(d)) return null; return ne
 
 /* ---------- OCR helpers para CNPJ/CPF ---------- */
 function normalizeOcrCharsToDigits(raw = '') {
-    // Corrige confusões comuns em OCR
     return String(raw)
         .replace(/[OoDd]/g, '0')
         .replace(/[Il]/g, '1')
@@ -206,15 +199,39 @@ function hamming14(a, b) {
 function tryFixValorFromFontes(campos) {
     if (campos.valorTotal) return campos;
     const linhas = campos._fontes?.linhasRelevantes || [];
+    if (!linhas.length) return campos;
+
+    const POS = /VALOR\s+(DOS|DE)\s+SERVI[CÇ]OS|TOTAL\s+DOS\s+SERVI[CÇ]OS|VALOR\s+TOTAL\s+(DA\s+NOTA|DA\s+NFS-E)|VALOR\s+BRUTO/i;
+    const NEG = /ISS|ISSQN|ALIQUOTA|ALIQ|TRIBUTO|IMPOSTO|IRRF|PIS|COFINS|CSLL|INSS|LIQUIDO|RETEN|RETIDO/i;
+
+    const parseMoney = (s) => {
+        const m = String(s).match(/(?:R\$\s*)?(\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d{2})/);
+        if (!m) return null;
+        let x = m[0].replace(/\s+/g, '');
+        const hasComma = /,\d{2}$/.test(x);
+        if (hasComma) x = x.replace(/\./g, '').replace(',', '.'); else x = x.replace(/,/g, '');
+        const n = Number(x.replace(/[^\d.]/g, ''));
+        return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+    };
+
     for (const lin of linhas) {
-        const v = parseMoneyAny(lin) || parseMoneyPtBR(lin);
-        if (v) {
-            const n = normalizeMoneySmart(v);
+        if (NEG.test(lin)) continue;
+        if (POS.test(lin)) {
+            const n = parseMoney(lin);
             if (Number.isFinite(n)) {
                 campos.valorTotal = n.toFixed(2);
                 campos._valorBrutoFonte = 'fontes';
-                break;
+                return campos;
             }
+        }
+    }
+    for (const lin of linhas) {
+        if (NEG.test(lin)) continue;
+        const n = parseMoney(lin);
+        if (Number.isFinite(n)) {
+            campos.valorTotal = n.toFixed(2);
+            campos._valorBrutoFonte = 'fontes';
+            return campos;
         }
     }
     return campos;
@@ -284,7 +301,7 @@ function fuzzyAssignDocs(campos, fontes, prestadorEsperado, tomadorEsperado) {
     for (const lin of linhas) {
         if (/\binscr[ií]c[aã]o|\bim\b|\bie\b|estadual|municipal/i.test(lin)) continue;
         const norm = normalizeOcrCharsToDigits(lin);
-        const m = norm.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14})/g);
+        const m = norm.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14}|\d{11})/g);
         if (!m) continue;
         for (const raw of m) {
             const d = onlyDigits(raw);
@@ -301,15 +318,14 @@ function fuzzyAssignDocs(campos, fontes, prestadorEsperado, tomadorEsperado) {
             t = T;
             campos._autocorrecao = (campos._autocorrecao || '') + '|tomador_exact_fontes';
         } else {
-            // escolhe candidato mais próximo
             let best = null, bestD = Infinity;
             for (const c of cand) {
                 if (c.length !== 14) continue;
                 const d = hamming14(c, T);
                 if (d < bestD) { bestD = d; best = c; }
             }
-            if (best !== null && bestD <= 2) { // tolera até 2 diffs
-                t = T; // corrige para o esperado (há evidência de near-match)
+            if (best !== null && bestD <= 2) {
+                t = T; // corrige para o esperado (near-match)
                 campos._autocorrecao = (campos._autocorrecao || '') + `|tomador_fuzzy(d=${bestD})`;
             }
         }
@@ -339,48 +355,145 @@ function fuzzyAssignDocs(campos, fontes, prestadorEsperado, tomadorEsperado) {
     return campos;
 }
 
-/* ====== FALLBACKS DETERMINÍSTICOS NO TEXTO ====== */
+/* ====== FALLBACK DETERMINÍSTICO NO TEXTO (âncora + ranking) ====== */
 function extrairValorBrutoDeterministico(texto) {
     if (!texto) return null;
 
-    const t = removerAcentos(String(texto))
-        .replace(/\u00A0/g, ' ')
+    const NBSP = /\u00A0/g;
+    const strip = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const toFlat = s => strip(String(s || ''))
+        .replace(NBSP, ' ')
         .replace(/\s+/g, ' ')
-        .toLowerCase();
+        .toUpperCase();
 
-    const rotulos = [
-        'valor total da nota',
-        'valor total dos servicos',
-        'valor dos servicos',
-        'total dos servicos',
-        'valor bruto'
+    const flat = toFlat(texto);
+    const MONEY = '(?:R\\$\\s*)?((?:\\d{1,3}(?:[.\\s]\\d{3})+|\\d+)[.,]\\d{2})';
+
+    const anchors = [
+        /VALOR\s+TOTAL\s+DOS\s+SERVI[CÇ]OS/gi,
+        /VALOR\s+DOS\s+SERVI[CÇ]OS/gi,
+        /TOTAL\s+DOS\s+SERVI[CÇ]OS/gi,
+        /VALOR\s+TOTAL\s+DA\s+(?:NOTA|NFS-?E)/gi,
+        /VALOR\s+BRUTO(?:\s+DOS\s+SERVI[CÇ]OS)?/gi,
+        /VL\.?\s+TOTAL\s+DOS\s+SERVI[CÇ]OS/gi,
+        /VL\.?\s+DOS\s+SERVI[CÇ]OS/gi,
+        /VALOR\s+TOTAL\s+DOS\s+SERVICOS\s+PRESTADOS/gi,
+        /TOTAL\s+SERVI[CÇ]OS/gi,
     ];
+    const NEG_BETWEEN = /(ISS|ISSQN|ALIQUOTA|ALIQ|IRRF|PIS|COFINS|CSLL|INSS|RETEN|RETIDO|LIQUIDO|DEDU|DESCONTO)/i;
 
-    const ban = /(liquido|retenc|deduc|iss|inss|irrf|pis|cofins|csll)/;
-
-    for (const rot of rotulos) {
-        const idx = t.indexOf(rot);
-        if (idx < 0) continue;
-
-        const janela = t.slice(idx, idx + 140);
-        if (ban.test(janela)) continue;
-
-        const m = janela.match(/(?:^|[^\d])(r\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/i);
-        if (m && m[2]) {
-            const val = m[2].replace(/\./g, '').replace(',', '.');
-            const n = Number(val);
-            if (Number.isFinite(n)) return n.toFixed(2);
+    for (const a of anchors) {
+        a.lastIndex = 0;
+        let m;
+        while ((m = a.exec(flat)) !== null) {
+            const start = m.index + m[0].length;
+            const look = flat.slice(start, start + 180);
+            if (NEG_BETWEEN.test(look)) {
+                const mm = look.match(new RegExp('^\\s*' + MONEY, 'i')) || look.match(new RegExp(MONEY, 'i'));
+                if (mm) {
+                    const posNum = look.indexOf(mm[1]);
+                    const posNeg = look.search(NEG_BETWEEN);
+                    if (posNeg !== -1 && posNeg < posNum) continue;
+                    let s = mm[1].replace(/\s+/g, '');
+                    const br = /,\d{2}$/.test(s);
+                    if (br) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+                    const n = Number(s);
+                    if (Number.isFinite(n) && n > 0) return n.toFixed(2);
+                }
+                continue;
+            }
+            const mm = look.match(new RegExp(MONEY, 'i'));
+            if (mm && mm[1]) {
+                let s = mm[1].replace(/\s+/g, '');
+                const br = /,\d{2}$/.test(s);
+                if (br) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+                const n = Number(s);
+                if (Number.isFinite(n) && n > 0) return n.toFixed(2);
+            }
         }
     }
 
-    const m2 = t.match(/total[^0-9]{0,40}(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)/i);
-    if (m2) {
-        const val = m2[1].replace(/\./g, '').replace(',', '.');
-        const n = Number(val);
-        if (Number.isFinite(n)) return n.toFixed(2);
-    }
+    // Fallback por linhas com ranking
+    const normLine = s => toFlat(s).trim();
+    const lines = String(texto || '').replace(/\r\n/g, '\n').split('\n').map((orig, i) => ({ i, orig, norm: normLine(orig) }));
 
-    return null;
+    const POS_PRIMARY = [
+        'VALOR TOTAL DOS SERVICOS',
+        'VALOR DOS SERVICOS',
+        'TOTAL DOS SERVICOS',
+        'VALOR TOTAL DA NOTA',
+        'VALOR TOTAL DA NFS-E',
+        'VALOR BRUTO',
+        'VALOR BRUTO DOS SERVICOS',
+        'VL. TOTAL DOS SERVICOS',
+        'VL TOTAL DOS SERVICOS',
+        'VL. DOS SERVICOS',
+        'VALOR TOTAL DOS SERVICOS PRESTADOS',
+        'TOTAL SERVICOS'
+    ];
+    const POS_SECONDARY = ['VALOR DO SERVICO', 'VALOR DE SERVICO', 'TOTAL GERAL', 'VALOR CONTABIL', 'TOTAL NOTA'];
+    const NEG_STRONG = [
+        'VALOR DO ISS', 'ISS', 'ISSQN', 'ALIQUOTA', 'ALIQ', 'IMPOSTO', 'TRIBUTO',
+        'IRRF', 'PIS', 'COFINS', 'CSLL', 'INSS', 'RETEN', 'RETIDO', 'RETENCAO',
+        'LIQUIDO', 'VALOR LIQUIDO', 'LIQ', 'DEDU', 'DESCONTO'
+    ];
+
+    const MONEY_REGEX = /(?:R\$\s*)?((?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d{2}))/g;
+    const parseMoney = s => {
+        s = String(s).replace(/\s+/g, '');
+        const br = /,\d{2}$/.test(s);
+        if (br) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+        const n = Number(s);
+        return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+    };
+    const includesAny = (hay, arr) => arr.some(t => hay.includes(t));
+    const win = (idx, span = 1) => {
+        const lo = Math.max(0, idx - span), hi = Math.min(lines.length - 1, idx + span);
+        return Array.from({ length: hi - lo + 1 }, (_, k) => lines[lo + k].norm).join(' \n ');
+    };
+
+    const candidates = [];
+    for (const line of lines) {
+        let m; MONEY_REGEX.lastIndex = 0;
+        const found = [];
+        while ((m = MONEY_REGEX.exec(line.orig)) !== null) found.push({ raw: m[0], core: m[1], idx: m.index });
+        if (!found.length) continue;
+
+        const near = win(line.i, 1);
+        const negHere = includesAny(line.norm, NEG_STRONG);
+        const negNear = includesAny(near, NEG_STRONG);
+        const p1Here = includesAny(line.norm, POS_PRIMARY);
+        const p1Near = includesAny(near, POS_PRIMARY);
+        const p2Here = includesAny(line.norm, POS_SECONDARY);
+        const p2Near = includesAny(near, POS_SECONDARY);
+
+        for (const mm of found) {
+            const val = parseMoney(mm.core);
+            if (!Number.isFinite(val)) continue;
+            const tail = line.orig.slice(mm.idx, mm.idx + mm.raw.length + 5);
+            if (!/\bR\$\s*/.test(mm.raw) && /%/.test(tail) && val <= 1) continue;
+
+            let score = 0;
+            if (p1Here) score += 80; else if (p1Near) score += 35;
+            if (!p1Here && !p1Near) { if (p2Here) score += 25; else if (p2Near) score += 10; }
+            if (/\bR\$\s*/.test(mm.raw)) score += 6;
+            if (negHere) score -= 70; else if (negNear) score -= 35;
+            if (val === 0) score -= 50;
+            if (/[:\-–]\s*(R\$\s*)?(?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d{2})\b/.test(line.orig)) score += 8;
+
+            candidates.push({ i: line.i, val, score, lineOrig: line.orig, lineNorm: line.norm, p1Here });
+        }
+    }
+    if (!candidates.length) return null;
+
+    candidates.sort((a, b) => b.score - a.score);
+    const withPrimaryHere = candidates.filter(c => c.p1Here);
+    let winner = withPrimaryHere.length ? withPrimaryHere[0] : candidates[0];
+    if (winner.val === 0) {
+        const alt = candidates.find(c => c.val > 0 && c.score >= winner.score - 15);
+        if (alt) winner = alt;
+    }
+    return Number(winner.val).toFixed(2);
 }
 
 function extrairDataEmissaoDeterministica(texto) {
@@ -425,7 +538,6 @@ function extrairDataEmissaoDeterministica(texto) {
             return `${d}/${mth}/${y}`;
         }
     }
-
     return null;
 }
 
@@ -475,7 +587,8 @@ Estrutura de saída (retorne SOMENTE isso):
 TEXTO:
 """
 ${texto}
-"`.trim();
+"""
+`.trim();
 
     try {
         const completion = await openai.chat.completions.create({
@@ -703,10 +816,24 @@ function reconciliarDocsSeIguais(campos, fontes, prestadorEsperado, tomadorEsper
 /* ========================= Validação final ========================= */
 async function validarComSubLote(campos, subLoteId) {
     const sublote = await SubLoteCommissions.findByPk(subLoteId);
-    if (!sublote) return { valido: false, motivo: 'Sub-lote não encontrado.', camposComErro: ['subLoteCommissionsId inválido'], camposEsperados: {} };
+    if (!sublote) {
+        return {
+            valido: false,
+            motivo: 'Sub-lote não encontrado.',
+            camposComErro: ['subLoteCommissionsId inválido'],
+            camposEsperados: {}
+        };
+    }
 
     const empresa = await Empresa.findByPk(sublote.empresa_ID);
-    if (!empresa) return { valido: false, motivo: 'Empresa vinculada ao sub-lote não encontrada.', camposComErro: ['empresa_ID inválido'], camposEsperados: {} };
+    if (!empresa) {
+        return {
+            valido: false,
+            motivo: 'Empresa vinculada ao sub-lote não encontrada.',
+            camposComErro: ['empresa_ID inválido'],
+            camposEsperados: {}
+        };
+    }
 
     const criadoEm = new Date(sublote.createdAt);
     const criadoEmDia = soDia(criadoEm);
@@ -721,36 +848,55 @@ async function validarComSubLote(campos, subLoteId) {
     const valorExtraido = normalizeMoneySmart(campos.valorTotal);
     const valorEsperado = normalizeMoneySmart(sublote.total_provisionado);
 
+    const toCents = n => Number.isFinite(n) ? Math.round(n * 100) : NaN;
+    const sameMoney = (a, b) =>
+        Number.isFinite(a) && Number.isFinite(b) &&
+        Math.abs(toCents(a) - toCents(b)) <= 1; // tolera 1 centavo
+
+    if (!Number.isFinite(valorExtraido) || !Number.isFinite(valorEsperado) || !sameMoney(valorExtraido, valorEsperado)) {
+        camposComErro.push('valorTotal');
+    }
+
     const camposEsperados = {
         dataEmissaoMinima: criadoEm.toLocaleDateString('pt-BR'),
-        competenciaMinima: criadoEm.toLocaleDateString('pt-BR'),
-        valorTotal: valorEsperado != null ? valorEsperado.toFixed(2) : null,
+        competenciaMinima: criadoEm.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' }),
+        valorTotal: Number.isFinite(valorEsperado) ? valorEsperado.toFixed(2) : null,
         prestadorCpfCnpj: prestadorEsperado,
         tomadorCpfCnpj: tomadorEsperado
     };
 
     const dataEmissao = parseDataOuCompetencia(campos.dataEmissao);
     const dataEmissaoDia = dataEmissao ? soDia(dataEmissao) : null;
-    if (!dataEmissaoDia || dataEmissaoDia < criadoEmDia) camposComErro.push('dataEmissao');
+    if (!dataEmissaoDia || dataEmissaoDia < criadoEmDia) {
+        camposComErro.push('dataEmissao');
+    }
 
     const competencia = parseDataOuCompetencia(campos.competencia);
     const competenciaValida =
         competencia &&
         (competencia.getFullYear() * 100 + competencia.getMonth() + 1) >=
         (criadoEm.getFullYear() * 100 + criadoEm.getMonth() + 1);
+
     if (!competenciaValida) {
         camposComErro.push('competencia');
-        camposEsperados.competenciaMinima = criadoEm.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
     }
 
-    if (!Number.isFinite(valorExtraido) || !Number.isFinite(valorEsperado) || valorExtraido !== valorEsperado) {
-        camposComErro.push('valorTotal');
+    if (!prestador || prestador !== prestadorEsperado) {
+        camposComErro.push('prestadorCpfCnpj');
     }
-    if (!prestador || prestador !== prestadorEsperado) camposComErro.push('prestadorCpfCnpj');
-    if (!tomador || tomador !== tomadorEsperado) camposComErro.push('tomadorCpfCnpj');
+    if (!tomador || tomador !== tomadorEsperado) {
+        camposComErro.push('tomadorCpfCnpj');
+    }
 
-    const valido = camposComErro.length === 0;
-    return { valido, motivo: valido ? null : 'Os dados extraídos não batem com o sublote informado.', camposComErro, camposEsperados };
+    const camposComErroUnicos = Array.from(new Set(camposComErro));
+    const valido = camposComErroUnicos.length === 0;
+
+    return {
+        valido,
+        motivo: valido ? null : 'Os dados extraídos não batem com o sublote informado.',
+        camposComErro: camposComErroUnicos,
+        camposEsperados
+    };
 }
 
 /* ========================= Controller ========================= */
@@ -764,7 +910,9 @@ const uploadNotaController = async (req, res) => {
 
     try {
         const data = await pdfParse(file.buffer);
-        let texto = (data.text || '').replace(/\s+/g, ' ').trim();
+
+        // ——— IMPORTANTE: preservar quebras de linha para o determinístico ———
+        const texto = (data.text || '');
 
         // Esperados (para possível correção de inversão, conforme combinado)
         const sublote = await SubLoteCommissions.findByPk(subLoteCommissionsId);
@@ -786,8 +934,15 @@ const uploadNotaController = async (req, res) => {
             // Valor: preferir determinístico; se não achar, normaliza o que vier da IA
             const vDet = extrairValorBrutoDeterministico(texto);
             if (vDet) {
-                camposExtraidos.valorTotal = vDet;
-                camposExtraidos._valorBrutoFonte = 'deterministico';
+                const nDet = normalizeMoneySmart(vDet);
+                const nIa = normalizeMoneySmart(camposExtraidos.valorTotal);
+                if (!Number.isFinite(nIa) || Math.abs(nIa - nDet) > 0.01) {
+                    camposExtraidos.valorTotal = nDet.toFixed(2);
+                    camposExtraidos._valorBrutoFonte = 'deterministico';
+                } else {
+                    camposExtraidos.valorTotal = nIa.toFixed(2);
+                    camposExtraidos._valorBrutoFonte = camposExtraidos._valorBrutoFonte || 'gpt';
+                }
             } else {
                 if (camposExtraidos.valorTotal) {
                     const n = normalizeMoneySmart(camposExtraidos.valorTotal);
@@ -812,11 +967,70 @@ const uploadNotaController = async (req, res) => {
             camposExtraidos = autoCorrigirInversaoPorEsperado(camposExtraidos, prestadorEsperado, tomadorEsperado);
             camposExtraidos._antesPrestTom = antes;
 
+            /* ——— NEW: Cross-check por VISÃO se o valor do TEXTO for suspeito ——— */
+            const valorTexto = normalizeMoneySmart(camposExtraidos.valorTotal);
+            const valorEsperado = normalizeMoneySmart(sublote.total_provisionado);
+            const toCents = n => Number.isFinite(n) ? Math.round(n * 100) : NaN;
+            const diffMaiorQue1cent = Number.isFinite(valorTexto) && Number.isFinite(valorEsperado)
+                ? Math.abs(toCents(valorTexto) - toCents(valorEsperado)) > 1
+                : true;
+
+            const contextoNegativo = /ISS|ISSQN|ALIQUOTA|ALIQ|IRRF|PIS|COFINS|CSLL|INSS|RETEN|RETIDO|LIQUIDO|DEDU|DESCONTO/i.test(texto);
+            const precisaVisao =
+                VISION_CROSSCHECK &&
+                (
+                    !Number.isFinite(valorTexto) ||
+                    valorTexto === 0 ||
+                    diffMaiorQue1cent ||
+                    (camposExtraidos._valorBrutoFonte === 'deterministico' && contextoNegativo)
+                );
+
+            if (precisaVisao) {
+                try {
+                    const conv = await pdfBufferToPngPaths(file.buffer, { from: 1, to: VISION_PAGES, scaleTo: VISION_SCALE_TO });
+                    try {
+                        const visRaw = await extrairCamposComVisionFromPngs(conv.paths);
+                        if (visRaw) {
+                            let vis = mapearCamposExtraidos(visRaw);
+                            vis.competencia = normalizarCompetencia(vis.competencia);
+                            vis = tryFixValorFromFontes(vis);
+                            const nVis = normalizeMoneySmart(vis.valorTotal);
+                            if (Number.isFinite(nVis) && nVis > 0) {
+                                const bateComEsperado = Number.isFinite(valorEsperado) && Math.abs(toCents(nVis) - toCents(valorEsperado)) <= 1;
+                                const textoRuim = !Number.isFinite(valorTexto) || valorTexto === 0 || diffMaiorQue1cent;
+                                if (bateComEsperado || textoRuim) {
+                                    camposExtraidos.valorTotal = nVis.toFixed(2);
+                                    camposExtraidos._valorBrutoFonte = 'visao-crosscheck';
+                                }
+                            }
+                        }
+                    } finally {
+                        conv.cleanup();
+                    }
+                } catch (_) {
+                    // silencioso: se a visão falhar, segue com o valor por texto
+                }
+            }
+
             const resultado = await validarComSubLote(camposExtraidos, subLoteCommissionsId);
             if (resultado.valido) {
-                return res.json({ sucesso: true, mensagem: 'Nota fiscal validada com sucesso.', via: 'texto', camposExtraidos, camposEsperados: resultado.camposEsperados, camposComErro: [] });
+                return res.json({
+                    sucesso: true,
+                    mensagem: 'Nota fiscal validada com sucesso.',
+                    via: (camposExtraidos._valorBrutoFonte === 'visao-crosscheck' ? 'texto+visao' : 'texto'),
+                    camposExtraidos,
+                    camposEsperados: resultado.camposEsperados,
+                    camposComErro: []
+                });
             }
-            return res.status(422).json({ sucesso: false, mensagem: resultado.motivo, via: 'texto', camposExtraidos, camposEsperados: resultado.camposEsperados, camposComErro: resultado.camposComErro });
+            return res.status(422).json({
+                sucesso: false,
+                mensagem: resultado.motivo,
+                via: (camposExtraidos._valorBrutoFonte === 'visao-crosscheck' ? 'texto+visao' : 'texto'),
+                camposExtraidos,
+                camposEsperados: resultado.camposEsperados,
+                camposComErro: resultado.camposComErro
+            });
         }
 
         // (B) Fallback VISÃO — apenas quando não há texto legível
@@ -839,7 +1053,6 @@ const uploadNotaController = async (req, res) => {
             let camposExtraidos = mapearCamposExtraidos(camposBrutosVisao);
             camposExtraidos.competencia = normalizarCompetencia(camposExtraidos.competencia);
 
-            // Reparo a partir das fontes (valor/doc/data)
             camposExtraidos = tryFixValorFromFontes(camposExtraidos);
             if (camposExtraidos._fontes?.linhasRelevantes?.length) {
                 camposExtraidos.prestadorCpfCnpj = tryFixDocFromFontesByRole(camposExtraidos.prestadorCpfCnpj, camposExtraidos._fontes, 'prestador');
@@ -847,7 +1060,6 @@ const uploadNotaController = async (req, res) => {
                 camposExtraidos = tryFixDataFromFontes(camposExtraidos);
             }
 
-            // Fuzzy com esperados quando docs ficaram iguais/ruins por OCR
             camposExtraidos = fuzzyAssignDocs(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
             camposExtraidos = reconciliarDocsSeIguais(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
 
@@ -881,8 +1093,8 @@ const uploadNotaController = async (req, res) => {
 const getValidNF = async (req, res) => {
     try {
         const configuracoes = await SystemConfigCheck.findAll();
-        const nfConfig = await configuracoes.find(cfg => cfg.nome === 'NF_validated');
-        const isValidNF = await nfConfig?.checked;
+        const nfConfig = configuracoes.find(cfg => cfg.nome === 'NF_validated'); // (não precisa await)
+        const isValidNF = nfConfig?.checked;
         res.send({ isValidNF, sucesso: true });
     } catch (err) {
         res.status(500).send({
