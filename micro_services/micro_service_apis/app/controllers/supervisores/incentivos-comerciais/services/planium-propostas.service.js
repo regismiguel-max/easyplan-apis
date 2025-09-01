@@ -120,7 +120,7 @@ class PlaniumPropostaService {
     }
 
     _mapProposta(proposta, incentiveId) {
-        return {
+        let propostasPayload = {
             produto: proposta.produto,
             status: proposta.status,
             data_assinatura: proposta.date_sig,
@@ -136,9 +136,20 @@ class PlaniumPropostaService {
             operadora: proposta.metadados?.operadora_nome ?? null,
             incentive_id: incentiveId,
             propostaID: proposta.propostaID.toString(),
-            contratante_cpf: proposta.contratante_cpf,
+            // contratante_cpf: proposta.contratante_cpf,
             beneficiarios: proposta.beneficiarios
         };
+
+        if(proposta.metadados && proposta.metadados.titulares_cpf && proposta.metadados.titulares_cpf.length > 0) {
+            console.log('Quero vê como que é esse array do cpf do titular: ', proposta.metadados.titulares_cpf);
+            console.log('Quero vê o do contratante também: ', proposta.contratante_cpf);
+            
+            propostasPayload.contratante_cpf = proposta.metadados.titulares_cpf[0];
+        } else {
+            propostasPayload.contratante_cpf = proposta.contratante_cpf;
+        }
+
+        return propostasPayload;  
     }
 
     async _atualizarResultados(incentiveId, novasPropostas, propostasPlanium, beneficiarios) {
