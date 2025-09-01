@@ -475,14 +475,14 @@ db.incentives_results.belongsTo(db.incentives, {
     as: 'incentive'
 })
 
-db.incentives.hasOne(db.user, {
-    foreignKey: 'user_id',
-    as: 'incentive'
-});
-
-db.user.belongsTo(db.incentives, {
+db.incentives.belongsTo(db.user, {
     foreignKey: 'user_id',
     as: 'user'
+});
+
+db.user.hasMany(db.incentives, {
+    foreignKey: 'user_id',
+    as: 'incentives'
 })
 
 db.incentives.belongsTo(db.corretoras, {
