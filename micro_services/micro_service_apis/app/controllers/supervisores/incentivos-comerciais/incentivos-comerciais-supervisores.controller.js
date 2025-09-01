@@ -22,17 +22,33 @@ class IncentiveController {
         if (!valid) return res.status(400).json({ sucesso: false, message });
         console.log('Passou na validação');
 
-        const incentives = await db.incentives.findAll({
+        let incentive = await db.incentives.findOne({
             where: {user_id: payload.user_id, status: 'Em andamento', cnpj: payload.cnpjCorretora},
             order: [['createdAt', 'DESC']],
         })
 
-        console.log('Vamos vê se encontramos algum incentivo: ', incentives);
-        if(incentives.length > 0) {
-            return res.status(409).json({
-                sucesso: false,
-                message: "Já existe um incentivo em andamento para essa corretora neste mês.",
-            });
+        incentive = incentive.get({plain: true});
+
+        console.log('Vamos vê se encontramos algum incentivo: ', incentive);
+        // start_challenge_date: '2025-09-01T15:11:02.784-03:00',
+        // "startDate": "2025-08-01T15:11:55.414-03:00",
+
+        if(incentive) {
+            let current = incentive.start_challenge_date.split('T')[0];
+            let last = payload.startDate.split('T')[0];
+
+            console.log('Quais as datas: ', current, last);
+            
+            if(current === last){
+                console.log('Tentou criar um incentivo que já está em andamento');
+                
+                return res.status(409).json({
+                    sucesso: false,
+                    message: "Já existe um incentivo em andamento para essa corretora neste mês.",
+                });
+            }
+
+            console.log('Criou um desafio retroativo ou futuro');
         }
 
         const IncentiveRepositoryInstance = new IncentiveRepository();
@@ -325,6 +341,25 @@ class IncentiveController {
                 // console.log('Vejamos o status: ', response.data[0]?.statusFatura);
     
                 if(response?.data?.length < 0) {
+                    continue
+                }
+
+                if(response?.data?.length > 1){
+                    for(let parcela of response.data) {
+                        if(parcela.numero === 1){
+                            console.log('Tem mais de uma parcela');
+                            
+                            beneficiariosPagou.push(
+                                {
+                                    pagou: true,
+                                    codigo: codigo,
+                                    dataPagamento: parcela.dataPagamento,
+                                    contratante_cpf: codigo_cpf.cpf
+                                }
+                            )
+                        }
+                    }
+
                     continue
                 }
     
