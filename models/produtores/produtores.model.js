@@ -25,6 +25,9 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.BOOLEAN,
             defaultValue: false
         },
+        imagem_gladiador_URL: {
+            type: Sequelize.STRING
+        }
     });
 
     return Produtores;
