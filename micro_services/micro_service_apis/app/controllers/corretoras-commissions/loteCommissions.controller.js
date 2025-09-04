@@ -2949,7 +2949,7 @@ Temos o prazer de informar que um novo lote de comissões está disponível para
 
 Agradecemos por escolher a EasyPlan.
 
-Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)98259-3281_.
+Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)981454163_.
 
 Atenciosamente,
 
@@ -3042,7 +3042,7 @@ Temos o prazer de informar que um novo lote de comissões está disponível para
 
 Agradecemos por escolher a EasyPlan.
 
-Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)98259-3281_.
+Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)981454163_.
 
 Atenciosamente,
 
@@ -3109,7 +3109,7 @@ Temos o prazer de informar que um novo lote de comissões está disponível para
 
 Agradecemos por escolher a EasyPlan.
 
-Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)98259-3281_.
+Se precisar de qualquer assistência, não hesite em nos contatar através do número _(61)981454163_.
 
 Atenciosamente,
 

@@ -115,6 +115,13 @@ db.incentives_propostas = require("./incentivos-comerciais/incentives-qualitativ
 
 db.systemConfigCheck = require("./system-config/systemConfigCheck.model.js")(sequelize, Sequelize);
 
+db.rk_execucoes = require('./ranking/ranking_execucao.model')(sequelize, Sequelize.DataTypes);
+db.rk_resultados = require('./ranking/ranking_resultado.model')(sequelize, Sequelize.DataTypes);
+db.rk_supervisores = require('./ranking/ranking_supervisor.model')(sequelize, Sequelize.DataTypes);
+db.rk_vig_validas = require('./ranking/ranking_vigencias_validas.model')(sequelize, Sequelize.DataTypes);
+db.rk_operadoras = require('./ranking/ranking_operadora.model')(sequelize, Sequelize.DataTypes);
+db.rk_exclusoes = require('./ranking/ranking_exclusao.model')(sequelize, Sequelize.DataTypes);
+db.rk_cache_contrato_status = require("./ranking/ranking_cache_contrato_status.model.js")(sequelize, Sequelize.DataTypes);
 
 
 db.role.belongsToMany(db.user, {

@@ -1,5 +1,6 @@
 const { authJwt, verifyProdutor } = require("../../middleware");
 const controller = require("../../controllers/produtores/produtores.controller");
+const up = require("../../controllers/produtores/uploadImagemGladiador.controller");
 
 
 module.exports = (app) => {
@@ -49,6 +50,12 @@ module.exports = (app) => {
     app.put(
         "/produtor/:id", [authJwt.verifyToken],
         controller.updateProdutor
+    );
+
+    app.put(
+        "/produtor/imagem/gladiador/:id", [authJwt.verifyToken],
+        up.upload.single('file'),
+        controller.updateImagemGladiador
     );
 
     app.delete(

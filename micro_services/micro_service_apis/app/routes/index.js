@@ -84,4 +84,6 @@ require('./produtores/auth.routes')(app);
 require('./produtores/forgot.routes')(app);
 require('./produtores/vendas.routes')(app);
 
+require('./ranking/ranking.routes')(app);
+
 module.exports = app;

@@ -6,6 +6,7 @@ const Estado = db.utils_estados;
 const Endereco = db.produtores_enderecos;
 const { where, Op } = require("sequelize");
 const WhatsApp = require("../whatsapp/whatsapp.controller")
+const path = require('path');
 
 exports.addProdutor = async (req, res) => {
     await Produtor.create({
@@ -149,6 +150,51 @@ _Esta é uma mensagem automática. Favor não responder._`,
                         sucesso: true
                     });
                 }
+            } else {
+                res.status(401).send({
+                    message: err.message,
+                    sucesso: false
+                });
+            }
+        })
+        .catch(err => {
+            res.status(500).send({
+                message: err.message,
+                sucesso: false
+            });
+        });
+};
+
+exports.updateImagemGladiador = async (req, res) => {
+    const baseUploadPath = path.resolve(__dirname, '../../../../../uploads');
+
+    // Caminho absoluto real do arquivo salvo
+    const fullFilePath = path.join(req.file.destination, req.file.filename);
+
+    // Caminho relativo a /uploads
+    const relativePath = path.relative(baseUploadPath, fullFilePath).replace(/\\/g, '/');
+
+    // URL pública
+    const host = `${process.env.PROTOCOL}://${process.env.DOMAIN}`;
+    const publicUrl = `${host}/uploads/${relativePath}`;
+    await Produtor.update(
+        {
+            imagem_gladiador_URL: publicUrl,
+        },
+        {
+            where: {
+                id: req.params.id,
+            }
+        }
+    )
+        .then(async doc => {
+            if (doc) {
+                res.send({
+                    documento_responsavel: doc,
+                    message: "Imagem atualizada com sucesso!",
+                    sucesso: true
+                });
+
             } else {
                 res.status(401).send({
                     message: err.message,
