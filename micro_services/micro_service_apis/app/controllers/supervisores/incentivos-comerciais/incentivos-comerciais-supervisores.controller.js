@@ -9,6 +9,7 @@ const corretoraModel = require("../../../../../../models/corretoras/corretora.mo
 const PlaniumPropostaService = require("./services/planium-propostas.service");
 
 const { digital: api } = require("../../../config/axios/axios.config");
+const { Parser } = require("json2csv");
 
 class IncentiveController {
 
@@ -27,13 +28,12 @@ class IncentiveController {
             order: [['createdAt', 'DESC']],
         })
 
-        incentive = incentive.get({plain: true});
-
         console.log('Vamos vê se encontramos algum incentivo: ', incentive);
         // start_challenge_date: '2025-09-01T15:11:02.784-03:00',
         // "startDate": "2025-08-01T15:11:55.414-03:00",
-
+        
         if(incentive) {
+            incentive = incentive.get({plain: true});
             let current = incentive.start_challenge_date.split('T')[0];
             let last = payload.startDate.split('T')[0];
 
@@ -419,6 +419,149 @@ class IncentiveController {
             data: incentive,
         });
         
+    }
+
+    async payment(req, res){
+        // console.log('Veja o que chegou: ', req);
+        const incentive_id = req.query.incentive_id;
+
+        const incentivosDB = await db.incentives_propostas.findAll({
+            where: {
+                pagou: true,
+                financeiro_pagou: false,
+                incentive_id
+            },
+            include: {model: db.incentives, as: 'incentivo'}
+        });
+
+        const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
+
+        // Quantidade de Propostas
+        const quantidadePropostas = incentivos.length
+        // Quantidade de Vidas
+        const quantidadeBeneficiarios = incentivos.reduce((soma, item) => soma + item.beneficiarios, 0);
+        // Total a pagar n x vidas
+        const totalPagar = quantidadeBeneficiarios * incentivos[0].incentivo.payment_life;
+        // Informações do Recebedor
+        const nomeRecebedor = incentivos[0].incentivo.broker_name;
+        const cpfRecebedor = incentivos[0].incentivo.broker_cpf;
+
+        const payload = {
+            quantidadePropostas,
+            quantidadeBeneficiarios,
+            totalPagar,
+            nomeRecebedor,
+            cpfRecebedor
+        }
+
+        console.log('Veja o payload Final: ', payload);
+
+        return res.status(201).json({
+            sucesso: true,
+            message: 'Lista encontrada com sucesso',
+            data: payload
+        })
+    }
+    
+    async paymentList(req, res){
+        // console.log('Veja o que chegou: ', req);
+        const incentive_id = req.query.incentive_id;
+
+        const incentivosDB = await db.incentives_propostas.findAll({
+            where: {
+                pagou: true,
+                financeiro_pagou: false,
+                incentive_id
+            },
+            include: {model: db.incentives, as: 'incentivo'}
+        });
+
+        const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
+
+        // Campos que você deseja exportar
+        // const fields = ['contratante_nome', 'operadora', 'data_pagamento', 'data_vigencia', 'financeiro_pagou']; 
+        const fields = [
+            { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
+            { label: 'Nome do Contratante', value: 'contratante_nome' },
+            { label: 'Data Pagamento', value: 'data_pagamento' },
+            { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+            { label: 'Operadora', value: 'operadora' },
+            { label: 'Nome do Recebedor', value: 'incentivo.broker_name' },
+            { label: 'CPF do Recebedor', value: 'incentivo.broker_cpf' },
+            { label: 'Quantidade Beneficiário', value: 'beneficiarios' },
+        ];
+
+        const opts = {fields, delimiter: ';', quote: ''}
+        const json2csvParser = new Parser(opts);
+        const csv = json2csvParser.parse(incentivos);
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment('pagamentos.csv');
+        return res.send(csv);
+
+        // return res.status(201).json({
+        //     sucesso: true,
+        //     message: 'Lista encontrada com sucesso',
+        //     data: incentivos
+        // })
+    }
+
+    async report(req, res){
+        const incentive_id = req.query.incentive_id;
+        console.log('Veja o que chegou: ', incentive_id);
+
+        const incentivosDB = await db.incentives_propostas.findAll({
+            where: {
+                incentive_id
+            },
+            include: {model: db.incentives, as: 'incentivo'}
+        });
+
+        const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
+
+        // Campos que você deseja exportar
+        // const fields = ['contratante_nome', 'operadora', 'data_pagamento', 'data_vigencia', 'financeiro_pagou']; 
+        const fields = [
+            { label: 'Produto', value: 'produto' },
+            { label: 'Status da Proposta', value: 'status' },
+            { label: 'Data Vigencia', value: row => row.data_assinatura ? new Date(row.data_assinatura).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+            { label: 'Data Vigencia', value: row => row.data_criacao ? new Date(row.data_criacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+            { label: 'CPF do Corretor', value: 'vendedor_cpf' },
+            { label: 'Nome do Corretor', value: 'vendedor_nome' },
+            { label: 'CNPJ Corretora', value: 'corretora_cnpj' },
+            { label: 'Nome Corretora', value: 'corretora_nome' },
+            { label: 'Contratante E-mail', value: 'contratante_email' },
+            { label: 'Contratante Nome', value: 'contratante_nome' },
+            { label: 'UF', value: 'uf' },
+            { label: 'Valor Total', value: 'total_valor' },
+            { label: 'ID da Proposta', value: 'propostaID' },
+            { label: 'Contratante CPF', value: 'contrante_cpf' },
+            { label: '1° Parcela paga?', value: 'pagou' },
+            { label: 'Codigo do Contrato', value: 'codigo_do_ontrato' },
+            { label: 'Quantidade de Beneficiários', value: 'beneficiarios' },
+            { label: '1° Parcela paga?', value: 'pagou' },
+            { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
+            { label: 'Nome do Contratante', value: 'contratante_nome' },
+            { label: 'Data Pagamento', value: 'data_pagamento' },
+            { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+            { label: 'Operadora', value: 'operadora' },
+            { label: 'Nome do Recebedor', value: 'incentivo.broker_name' },
+            { label: 'CPF do Recebedor', value: 'incentivo.broker_cpf' },
+        ];
+
+        const opts = {fields, delimiter: ';', quote: ''}
+        const json2csvParser = new Parser(opts);
+        const csv = json2csvParser.parse(incentivos);
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment('pagamentos.csv');
+        return res.send(csv);
+
+        // return res.status(201).json({
+        //     sucesso: true,
+        //     message: 'Lista encontrada com sucesso',
+        //     data: incentivos
+        // })
     }
 }
 

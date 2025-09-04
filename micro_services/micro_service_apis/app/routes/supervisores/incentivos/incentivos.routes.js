@@ -3,6 +3,9 @@ module.exports = (app) => {
     const { authJwt } = require("../../../middleware");
 
     app.get("/supervisor/corretoras", IncentiveController.getAllCorretorasByName);
+    app.get("/supervisor/relatorio", [authJwt.verifyToken] , IncentiveController.report);
+    app.get("/supervisor/pagamento/lista", [authJwt.verifyToken] , IncentiveController.paymentList);
+    app.get("/supervisor/pagamento", [authJwt.verifyToken] , IncentiveController.payment);
     app.post("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.save);
     app.get("/supervisor/incentivos", [authJwt.verifyToken] , IncentiveController.getAll);
     app.get("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.getById);

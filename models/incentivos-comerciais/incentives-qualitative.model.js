@@ -76,7 +76,19 @@ module.exports = (sequelize, Sequelize) => {
         beneficiarios: {
             type: Sequelize.INTEGER,
             allowNull: true
-        }
+        },
+        financeiro_pagou: {
+            type: Sequelize.BOOLEAN,
+            allowNull: true
+        },
+        data_pagamento_financeiro: {
+            type: Sequelize.STRING,
+            allowNull: true
+        },
+        data_vigencia: {
+            type: Sequelize.DATE,
+            allowNull: true
+        },
     });
 
     return Incentives_Propostas;

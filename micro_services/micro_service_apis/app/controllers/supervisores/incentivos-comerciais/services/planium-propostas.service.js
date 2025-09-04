@@ -101,11 +101,11 @@ class PlaniumPropostaService {
             });
 
             if (existing) {
-                console.log('Incentivo Proposta antes da manipulação: ', existing);
+                // console.log('Incentivo Proposta antes da manipulação: ', existing);
                 
                 const incentive_proposta = existing.get({plain: true});
 
-                console.log('Incentivo Proposta depois da manipulação: ', incentive_proposta);
+                // console.log('Incentivo Proposta depois da manipulação: ', incentive_proposta);
                 
                 if(propostaObj.status !== incentive_proposta.status){
                     await existing.update({ status: propostaObj.status });
@@ -137,7 +137,8 @@ class PlaniumPropostaService {
             incentive_id: incentiveId,
             propostaID: proposta.propostaID.toString(),
             // contratante_cpf: proposta.contratante_cpf,
-            beneficiarios: proposta.beneficiarios
+            beneficiarios: proposta.beneficiarios,
+            data_vigencia: proposta.date_vigencia
         };
 
         if(proposta.metadados && proposta.metadados.titulares_cpf && proposta.metadados.titulares_cpf.length > 0) {
