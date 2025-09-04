@@ -47,7 +47,6 @@ function createRankingController() {
   const geral = async (req, res) => {
     try {
       const escopo = normEscopo(req.query.escopo);
-      const estadoId = req.query.estadoId ? String(req.query.estadoId) : undefined;
       const ufAlias = req.query.uf ? String(req.query.uf) : undefined;
 
       let limit = toIntOrUndef(req.query.limit);
@@ -60,7 +59,7 @@ function createRankingController() {
       const incluirValor = toBool(req.query.incluirValor);
 
       const svc = new RankingService();
-      const data = await svc.consultarTotal({ execucaoId, escopo, estadoId, uf: ufAlias, limit, cpf, incluirValor });
+      const data = await svc.consultarTotal({ execucaoId, escopo, uf: ufAlias, limit, cpf, incluirValor });
       return res.send({ sucesso: true, ...data });
     } catch (e) { return sendError(res, e); }
   };
@@ -80,7 +79,6 @@ function createRankingController() {
       }
 
       const escopo = normEscopo(req.query.escopo);
-      const estadoId = req.query.estadoId ? String(req.query.estadoId) : undefined;
       const ufAlias = req.query.uf ? String(req.query.uf) : undefined;
 
       let limit = toIntOrUndef(req.query.limit);
@@ -94,7 +92,7 @@ function createRankingController() {
       const incluirValor = toBool(req.query.incluirValor);
 
       const svc = new RankingService();
-      const data = await svc.consultarJanela({ execucaoId, escopo, estadoId, uf: ufAlias, janela, vigencia, limit, cpf, incluirValor });
+      const data = await svc.consultarJanela({ execucaoId, escopo, uf: ufAlias, janela, vigencia, limit, cpf, incluirValor });
       return res.send({ sucesso: true, ...data });
     } catch (e) { return sendError(res, e); }
   };
@@ -126,24 +124,81 @@ function createRankingController() {
   const porOperadora = async (req, res) => {
     try {
       const execucaoId = toIntOrUndef(req.query.execucaoId);
-      const cpf = req.query.cpf ? onlyDigits(req.query.cpf) : undefined;
       const incluirValor = toBool(req.query.incluirValor);
       let limit = toIntOrUndef(req.query.limit);
       if (limit !== undefined) {
         if (limit <= 0) return res.status(400).send({ sucesso: false, mensagem: "limit deve ser número > 0" });
         limit = clamp(limit, 1, 100);
       }
-      const operadora = req.query.operadora ? String(req.query.operadora) : 'todas';
-      const escopo = String(req.query.escopo || 'NACIONAL').toUpperCase();
-      const uf = req.query.uf ? String(req.query.uf) : undefined;
+
+      const operadoraRaw = req.query.operadora ? String(req.query.operadora) : 'todas';
+      const escopo = normEscopo(req.query.escopo);
+      const ufAlias = req.query.uf ? String(req.query.uf).toUpperCase() : undefined;
+      const cpf = req.query.cpf ? onlyDigits(req.query.cpf) : undefined;
+
+      const janela = (req.query.janela || 'TOTAL').toUpperCase();
+      if (!['TOTAL', 'DIA', 'MES'].includes(janela)) {
+        return res.status(400).send({ sucesso: false, mensagem: "janela deve ser TOTAL, DIA ou MES" });
+      }
+      const vigencia = req.query.vigencia ? String(req.query.vigencia) : null;
 
       const svc = new RankingService();
-      const data = await svc.consultarPorOperadora({ execucaoId, operadora, limit, cpf, incluirValor, escopo, uf });
+      const data = await svc.consultarPorOperadora({
+        execucaoId, operadora: operadoraRaw, janela, vigencia,
+        escopo, uf: ufAlias, cpf, incluirValor, limit
+      });
       return res.send({ sucesso: true, ...data });
     } catch (e) { return sendError(res, e); }
   };
 
-  return { gerar, geral, porVigencia, porCpfVigencias, porOperadora };
+  const porOperadoraCpfVigencias = async (req, res) => {
+    try {
+      const janela = String(req.query.janela || "").toUpperCase();
+      if (!["DIA", "MES"].includes(janela)) {
+        return res.status(400).send({ sucesso: false, mensagem: "janela deve ser DIA ou MES" });
+      }
+
+      const cpf = onlyDigits(req.query.cpf);
+      if (!cpf) {
+        return res.status(400).send({ sucesso: false, mensagem: "Informe ?cpf (apenas dígitos)" });
+      }
+
+      const operadora = req.query.operadora ? String(req.query.operadora) : 'GERAL';
+
+      const escopoIn = normEscopo(req.query.escopo);
+      const escopo = escopoIn === 'ESTADO' ? 'UF' : 'NACIONAL';
+      const uf = req.query.uf ? String(req.query.uf).toUpperCase() : undefined;
+      if (escopo === 'UF' && !uf) {
+        return res.status(400).send({ sucesso: false, mensagem: "Quando escopo=estado, informe ?uf=UF" });
+      }
+
+      let limit = toIntOrUndef(req.query.limit);
+      if (limit !== undefined) {
+        if (limit <= 0) return res.status(400).send({ sucesso: false, mensagem: "limit deve ser número > 0" });
+        // até 366 vigências (1 ano) no pior caso
+        limit = clamp(limit, 1, 366);
+      }
+
+      const execucaoId = toIntOrUndef(req.query.execucaoId);
+      const incluirValor = toBool(req.query.incluirValor);
+
+      const svc = new RankingService();
+      const data = await svc.consultarVigenciasCpfPorOperadora({
+        execucaoId,
+        janela,
+        cpf,
+        operadora,     // 'GERAL' ou nome exato
+        escopo,
+        uf,
+        incluirValor,
+        limit
+      });
+
+      return res.send({ sucesso: true, ...data });
+    } catch (e) { return sendError(res, e); }
+  };
+
+  return { gerar, geral, porVigencia, porCpfVigencias, porOperadora, porOperadoraCpfVigencias };
 }
 
 module.exports = { createRankingController };
