@@ -4,47 +4,6 @@ const axios = require('axios');
 const http = require('http');
 const https = require('https');
 
-module.exports = {
-    https: axios.create({
-        baseURL: process.env.BASEURLPLANIUM,
-        headers: {
-            'Planium-apikey': process.env.apikeyplanium,
-        },
-        httpAgent: new http.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 0,
-            timeout: 120000,
-            scheduling: 'fifo',
-        }),
-        httpsAgent: new https.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 0,
-            timeout: 120000,
-            scheduling: 'fifo',
-        }),
-    }),
-
-    digital: axios.create({
-        baseURL: process.env.BASEURL,
-        headers: {
-            'token': process.env.token,
-            'senhaApi': process.env.senhaApi,
-        },
-        httpAgent: new http.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 0,
-            timeout: 120000,
-            scheduling: 'fifo',
-        }),
-        httpsAgent: new https.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 0,
-            timeout: 120000,
-            scheduling: 'fifo',
-        }),
-    })
-}
-
 const HTTP_TIMEOUT_MS = Number(process.env.HTTP_TIMEOUT_MS) || 10000;
 const KEEPALIVE_MS = Number(process.env.KEEPALIVE_MS) || 30000;
 const MAX_SOCKETS = Number(process.env.MAX_SOCKETS) || 100;
@@ -113,4 +72,42 @@ module.exports = {
     // https: httpsInstance,             // contratos
     https_digital: httpsDigitalInstance, // faturas
     https_dnv: httpsDnvInstance,      // DNV (Planium)
+    https: axios.create({
+        baseURL: process.env.BASEURLPLANIUM,
+        headers: {
+            'Planium-apikey': process.env.apikeyplanium,
+        },
+        httpAgent: new http.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+        httpsAgent: new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+    }),
+
+    digital: axios.create({
+        baseURL: process.env.BASEURL,
+        headers: {
+            'token': process.env.token,
+            'senhaApi': process.env.senhaApi,
+        },
+        httpAgent: new http.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+        httpsAgent: new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 0,
+            timeout: 120000,
+            scheduling: 'fifo',
+        }),
+    })
 };
