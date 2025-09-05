@@ -4,6 +4,7 @@ module.exports = (app) => {
 
     app.get("/supervisor/corretoras", IncentiveController.getAllCorretorasByName);
     app.get("/supervisor/relatorio", [authJwt.verifyToken] , IncentiveController.report);
+    app.get("/supervisor/pagamento/listaGeral", [authJwt.verifyToken] , IncentiveController.paymentListByPaymentDate);
     app.get("/supervisor/pagamento/lista", [authJwt.verifyToken] , IncentiveController.paymentList);
     app.get("/supervisor/pagamento", [authJwt.verifyToken] , IncentiveController.payment);
     app.post("/supervisor/incentivo", [authJwt.verifyToken] , IncentiveController.save);

@@ -1,4 +1,4 @@
-const { where, Op } = require("sequelize");
+const { where, Op, Sequelize } = require("sequelize");
 const { raw } = require("body-parser");
 const db = require("../../../../../../models");
 const Corretora = db.corretoras;
@@ -462,7 +462,7 @@ class IncentiveController {
             data: payload
         })
     }
-    
+
     async paymentList(req, res){
         // console.log('Veja o que chegou: ', req);
         const incentive_id = req.query.incentive_id;
@@ -504,6 +504,66 @@ class IncentiveController {
         //     message: 'Lista encontrada com sucesso',
         //     data: incentivos
         // })
+    }
+
+    async paymentListByPaymentDate(req, res){
+        // console.log('Veja o que chegou: ', req);
+        const paymentDate = JSON.parse(req.query.paymentDate);
+        console.log('Veja o que veio: ', paymentDate);
+        console.log('Veja o que veio: ', paymentDate.init);
+        
+
+        const incentivosDB = await db.incentives_propostas.findAll({
+            where: {
+                pagou: true,
+                financeiro_pagou: false,
+                [Op.and]: [
+                    Sequelize.where(
+                        Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
+                        { [Op.gte]: Sequelize.fn("STR_TO_DATE", paymentDate.init, "%d/%m/%Y") }
+                    ),
+                    Sequelize.where(
+                        Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
+                        { [Op.lte]: Sequelize.fn("STR_TO_DATE", paymentDate.end, "%d/%m/%Y") }
+                    )
+                ]
+            },
+            include: {model: db.incentives, as: 'incentivo'}
+        });
+
+        const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
+
+        // Campos que você deseja exportar
+        // const fields = ['contratante_nome', 'operadora', 'data_pagamento', 'data_vigencia', 'financeiro_pagou']; 
+        const fields = [
+            // { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
+            { label: 'Nome do Contratante', value: 'contratante_nome' },
+            { label: 'CPF do titular', value: row => `'${row.contratante_cpf}` },
+            { label: 'Data Pagamento', value: 'data_pagamento' },
+            { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+            { label: 'Operadora', value: 'operadora' },
+            { label: 'Nome do Recebedor', value: 'incentivo.broker_name' },
+            { label: 'CPF do Recebedor', value: row => `'${row.incentivo.broker_cpf}` },
+            { label: 'Quantidade Beneficiário', value: 'beneficiarios' },
+            { label: 'Nome Corretora', value: 'corretora_nome' },
+            { label: 'Valor por Vida', value: 'incentivo.payment_life' },
+            { label: 'Meta de vida', value: 'incentivo.life_goal' },
+        ];
+
+        const opts = {fields, delimiter: ';', quote: ''}
+        const json2csvParser = new Parser(opts);
+        const csv = json2csvParser.parse(incentivos);
+
+        // res.header('Content-Type', 'text/csv');
+        // res.attachment('pagamentos.csv');
+        // return res.send(csv);
+
+        return res.status(201).json({
+            sucesso: true,
+            message: 'Lista encontrada com sucesso',
+            data: incentivos,
+            csv: Buffer.from(csv).toString('base64')
+        })
     }
 
     async report(req, res){
