@@ -1,4 +1,5 @@
 const { RankingService } = require("../../services/ranking.service");
+const WhatsApp = require("../whatsapp/whatsapp.controller")
 
 // helpers
 const onlyDigits = (s) => String(s || "").replace(/\D+/g, "");
@@ -40,6 +41,9 @@ function createRankingController() {
       }
       const svc = new RankingService();
       const out = await svc.gerarEPersistir({ inicio, fim });
+
+      WhatsApp.sendMessageBatalha();
+
       return res.send({ sucesso: true, ...out });
     } catch (e) { return sendError(res, e); }
   };

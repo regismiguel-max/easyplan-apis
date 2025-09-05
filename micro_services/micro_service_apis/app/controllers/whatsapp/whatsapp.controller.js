@@ -588,6 +588,19 @@ sendMessageAPIOficial = async (req, res) => {
     });
 };
 
+sendMessageBatalha = async () => {
+    const numeros = ['54992389702', '61993598991'];
+    numeros.forEach(async element => {
+        await axios.post('https://afinidade.atenderbem.com/int/enqueueMessageToSend', {
+            queueId: 20,
+            apiKey: "9c35e41ff6224efba0f52ba47ecb51b9",
+            number: element,
+            country: "+55",
+            text: `📢 Olá, a Batalha Easy — Heróis que fazem a diferença foi atualizada com sucesso!`,
+        });
+    });
+}
+
 module.exports = {
     client,
     initSession,
@@ -600,5 +613,6 @@ module.exports = {
     sendMessageSituacaoProdutor,
     sendMessageLinkImageProdutor,
     sendMessageSarah,
-    sendMessageAPIOficial
+    sendMessageAPIOficial,
+    sendMessageBatalha
 };
