@@ -1,5 +1,6 @@
 const express = require("express");
 const { createRankingController } = require("../../controllers/ranking/ranking.controller");
+const { listarOperadoras } = require('../../controllers/ranking/operadoras.controller');
 
 // ---------- helpers ----------
 const onlyDigits = (s) => String(s || "").replace(/\D+/g, "");
@@ -127,6 +128,46 @@ function validarPorOperadora(req, res, next) {
   next();
 }
 
+function validarPorOperadoraCpfVigencias(req, res, next) {
+  const q = req.query || {};
+  const janela = String(q.janela || "").toUpperCase();
+  if (!["DIA", "MES"].includes(janela)) {
+    return res.status(400).json({ sucesso: false, mensagem: "janela deve ser DIA ou MES" });
+  }
+
+  const cpf = onlyDigits(q.cpf);
+  if (!cpf) {
+    return res.status(400).json({ sucesso: false, mensagem: "Informe cpf (apenas dígitos)" });
+  }
+
+  // operadora pode ser 'GERAL' (default) ou nome exato
+  const operadora = q.operadora ? String(q.operadora) : 'GERAL';
+
+  const escopo = normalizarEscopo(q.escopo);
+  if (!["NACIONAL", "ESTADO"].includes(escopo)) {
+    return res.status(400).json({ sucesso: false, mensagem: "escopo deve ser 'nacional' ou 'estado'" });
+  }
+  const uf = q.uf ? String(q.uf).toUpperCase() : undefined;
+  if (escopo === "ESTADO" && !uf) {
+    return res.status(400).json({ sucesso: false, mensagem: "Quando escopo=estado, informe ?uf=UF" });
+  }
+
+  const limit = q.limit != null ? Number(q.limit) : undefined;
+  if (limit != null && (!Number.isFinite(limit) || limit <= 0)) {
+    return res.status(400).json({ sucesso: false, mensagem: "limit deve ser número > 0" });
+  }
+
+  req.query.janela = janela;
+  req.query.cpf = cpf;
+  req.query.operadora = operadora;
+  req.query.escopo = escopo;
+  req.query.uf = uf;
+  req.query.execucaoId = q.execucaoId ? Number(q.execucaoId) : undefined;
+  req.query.incluirValor = toBool(q.incluirValor);
+  req.query.limit = limit;
+  next();
+}
+
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 module.exports = (app, opts = {}) => {
@@ -138,6 +179,8 @@ module.exports = (app, opts = {}) => {
   router.get("/por-vigencia", validarPorVigencia, wrap(ctrl.porVigencia));
   router.get("/por-cpf-vigencias", validarPorCpfVigencias, wrap(ctrl.porCpfVigencias));
   router.get("/por-operadora", validarPorOperadora, wrap(ctrl.porOperadora));
+  router.get("/por-operadora-cpf-vigencias", validarPorOperadoraCpfVigencias, wrap(ctrl.porOperadoraCpfVigencias));
+  router.get('/operadoras', listarOperadoras);
 
   app.use("/api/ranking", router);
 

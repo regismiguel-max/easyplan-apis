@@ -1,6 +1,11 @@
 const path = require("path");
 const { withRateLimit } = require("../utils/withRateLimit");
 const { DigitalSaudeClient } = require("./digitalSaude/DigitalSaudeClient");
+const { PlaniumDnvClient } = require("./planium/PlaniumDnvClient");
+const axiosCfg = require("../config/axios/axios.config");
+
+const UF_NACIONAL = 'NA';
+const OPERADORA_GERAL = 'GERAL';
 
 // ---------- helpers ----------
 const normDigits = (s) => String(s || '').replace(/\D+/g, '');
@@ -8,12 +13,15 @@ const normContrato = (s) => String(s ?? '').replace(/\s+/g, '');
 
 const parseMoneyToCents = (s) => {
   if (s == null) return 0;
+  if (typeof s === 'number' && Number.isFinite(s)) return Math.round(s * 100);
   let str = String(s).trim().replace(/\s+/g, '');
   if (/,/.test(str) && /\./.test(str)) str = str.replace(/\./g, '').replace(',', '.');
   else if (/,/.test(str) && !/\./.test(str)) str = str.replace(',', '.');
   const n = Number(str);
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 };
+
+const toLower = (s) => String(s || '').trim().toLowerCase();
 
 const toYMD = (v) => {
   if (!v) return null;
@@ -32,8 +40,6 @@ const toYMD = (v) => {
   return null;
 };
 const monthKey = (ymd) => ymd ? ymd.slice(0, 7) : null;
-
-const isActive = (row) => String(row.status_do_beneficiario || '').trim().toLowerCase() === 'ativo';
 
 const guessUF = (row) => {
   const candidates = [row.corretor_uf, row.uf_corretor, row.uf_beneficiario, row.estadoUF, row.uf, row.estado];
@@ -63,7 +69,9 @@ class RankingService {
     this.db = require(path.resolve(__dirname, "../../../../models"));
     this.paralelo = Number(paralelo || 6);
     this.soTitular = !!soTitular;
+
     this.ds = new DigitalSaudeClient();
+    this.dnv = new PlaniumDnvClient();
 
     // usar models existentes
     this.tblExec = this.db.rk_execucoes;
@@ -72,11 +80,18 @@ class RankingService {
     this.tblOper = this.db.rk_operadoras;
     this.tblExcl = this.db.rk_exclusoes;
     this.tblCache = this.db.rk_cache_contrato_status;
+    this.tblSupervisores = this.db.rk_supervisores; // tabela com campo nome_supervisor
 
     // caches em memória
     this._metaCache = new Map();    // cpf -> { nome, uf }
     this._pagoCache = new Map();    // contrato -> boolean
-    this._exclSet = null;         // Set de cpfs (normalizados)
+    this._exclSet = null;           // Set de cpfs (normalizados)
+    this._superSet = null;          // Set de nomes de supervisor (exatos)
+    this._operSet = null;           // Set de nomes de operadora (exatos)
+
+    // DNV limits
+    this.dnvConcurrency = Number(process.env.DNV_CONCURRENCY || 4);
+    this.dnvMinDelay = Number(process.env.DNV_MIN_DELAY_MS || 150);
   }
 
   // -------- exclusões --------
@@ -84,8 +99,8 @@ class RankingService {
     if (this._exclSet) return this._exclSet;
     try {
       const rows = await this.tblExcl.findAll({ where: { ativo: true }, raw: true });
-      const pickCpf = (r) => normDigits(r.corretor_cpf || r.cpf || r.documento || r.documento_corretor || r.documento_corretora);
-      this._exclSet = new Set(rows.map(pickCpf).filter(Boolean));
+      // na tabela de exclusões, o campo correto é 'corretor_cpf'
+      this._exclSet = new Set(rows.map(r => normDigits(r.corretor_cpf)).filter(Boolean));
     } catch {
       this._exclSet = new Set();
     }
@@ -94,6 +109,49 @@ class RankingService {
   _isExcluido(cpfRaw) {
     const set = this._exclSet || new Set();
     return set.has(normDigits(cpfRaw));
+  }
+
+  // -------- supervisores (matching exato) --------
+  async _loadSupervisoresSet() {
+    if (this._superSet) return this._superSet;
+    try {
+      const rows = await this.tblSupervisores?.findAll({
+        attributes: ['nome_supervisor'],
+        raw: true
+      }).catch(() => []);
+      const list = (rows || []).map(r => String(r.nome_supervisor || '').trim()).filter(Boolean);
+      this._superSet = new Set(list);
+    } catch {
+      this._superSet = new Set();
+    }
+    // fail-fast para evitar descartar tudo silenciosamente
+    if ((this._superSet?.size || 0) === 0) {
+      throw new Error("Lista de supervisores vazia (rk_supervisores). Cadastre pelo menos um nome_supervisor ativo.");
+    }
+    return this._superSet;
+  }
+
+  // -------- operadoras (matching exato) --------
+  async _loadOperadorasSet() {
+    if (this._operSet) return this._operSet;
+    try {
+      const rows = await this.tblOper?.findAll({ where: { ativo: true }, attributes: ['operadora_nome'], raw: true }).catch(() => []);
+      // alguns modelos usam 'nome', outros 'operadora'/'titulo'; prioriza 'nome' e faz fallback
+      const list = (rows || []).map(r => (r.operadora_nome || '').toString().trim()).filter(Boolean);
+      this._operSet = new Set(list);
+    } catch {
+      this._operSet = new Set();
+    }
+
+    if (process.env.RANKING_DEBUG_DNV === '1') {
+      console.log('[RANK] Operadoras ativas:', Array.from(this._operSet || []).slice(0, 50));
+      console.log('[RANK] Supervisores:', Array.from(this._superSet || []).slice(0, 50));
+    }
+
+    if ((this._operSet?.size || 0) === 0) {
+      throw new Error("Lista de operadoras vazia (rk_operadoras.ativo=true). Cadastre pelo menos uma operadora_nome.");
+    }
+    return this._operSet;
   }
 
   // -------- contrato pago (com cache persistente) --------
@@ -142,256 +200,433 @@ class RankingService {
   async _getMetaByCpf(cpfRaw, sampleRow) {
     const cpf = normDigits(cpfRaw);
     if (this._metaCache.has(cpf)) return this._metaCache.get(cpf);
-    const nome = sampleRow?.nome_corretor || sampleRow?.nome_corretora || null;
+    const nome = sampleRow?.vendedorNome || sampleRow?.nome_corretor || sampleRow?.nome_corretora || null;
     const uf = guessUF(sampleRow);
     const meta = { nome, uf };
     this._metaCache.set(cpf, meta);
     return meta;
   }
 
-  async _carregarVigenciasValidas(inicio, fim) {
+  // -------- vigências válidas (modo estrito, sem filtrar por início/fim) --------
+  async _carregarVigenciasValidas() {
     const confRows = await this.tblVig?.findAll({ where: { ativo: true }, raw: true }).catch(() => []);
-    const mesParaDiasValidos = new Map(); // grupo -> set(dias)
-    const diaParaGrupo = new Map();       // dia -> grupo
-
-    const inRange = (ymd) => {
-      const d = new Date(ymd + "T00:00:00Z");
-      const st = new Date(inicio + "T00:00:00Z");
-      const en = new Date(fim + "T00:00:00Z");
-      return d >= st && d <= en;
-    };
+    const mesParaDiasValidos = new Map(); // grupo (YYYY-MM) -> set(dias YYYY-MM-DD)
+    const diaParaGrupo = new Map();       // dia (YYYY-MM-DD) -> grupo (YYYY-MM)
 
     for (const r of (confRows || [])) {
       const grupo = String(r.referencia_mes || '').slice(0, 7);
       const dia = toYMD(r.vigencia_dia);
       if (!grupo || !dia) continue;
-      if (!inRange(dia)) continue;
       const set = mesParaDiasValidos.get(grupo) || new Set();
       set.add(dia);
       mesParaDiasValidos.set(grupo, set);
       diaParaGrupo.set(dia, grupo);
     }
 
-    const diasValidosNoPeriodo = [];
-    for (const [, setDias] of mesParaDiasValidos.entries()) for (const dia of setDias) diasValidosNoPeriodo.push(dia);
-
+    const diasValidosNoPeriodo = Array.from(diaParaGrupo.keys());
     return { mesParaDiasValidos, diaParaGrupo, diasValidosNoPeriodo };
   }
 
-  async _buildWhitelistCnpjsPorEstado() {
-    const ESTADO_IDS = String(process.env.RANKING_ESTADO_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (ESTADO_IDS.length === 0) return null;
+  // -------- iterator de dias (America/Sao_Paulo) --------
+  _eachDayYMD(inicio, fim) {
+    const out = [];
+    const tzFix = (d) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    let d = new Date(inicio + "T00:00:00-03:00");
+    const end = new Date(fim + "T00:00:00-03:00");
+    while (tzFix(d) <= tzFix(end)) {
+      const Y = d.getFullYear(), M = String(d.getMonth() + 1).padStart(2, '0'), D = String(d.getDate()).padStart(2, '0');
+      out.push(`${Y}-${M}-${D}`);
+      d.setDate(d.getDate() + 1);
+    }
+    return out;
+  }
 
-    const endRows = await this.db.sequelize.query(
-      `
-      SELECT id FROM \`corretoras_enderecos\`
-      WHERE estado_ID IN (${ESTADO_IDS.map(() => '?').join(',')})
-      `,
-      { replacements: ESTADO_IDS, type: this.db.Sequelize.QueryTypes.SELECT }
-    );
-    const endIds = endRows.map(r => String(r.id));
-    if (endIds.length === 0) throw new Error("Whitelist de corretoras vazia (nenhum endereço para os estado_ID informados).");
+  // -------- DNV: coleta e filtros para VENDIDAS --------
+  async _coletarVendidasDNV({ inicio, fim, diaParaGrupo, whitelistSuper, whitelistOper }) {
+    const CNPJ_OPERADORA = "27252086000104";
+    const banStatus = new Set(['cancelado', 'cancelada', 'retificado', 'retificada']);
+    await this._loadExcluidosSet();
 
-    const corRows = await this.db.sequelize.query(
-      `
-      SELECT c.cnpj
-      FROM \`corretoras\` c
-      WHERE c.endereco_ID IN (${endIds.map(() => '?').join(',')})
-      UNION
-      SELECT c2.cnpj
-      FROM \`corretoras\` c2
-      WHERE c2.endereco_ID IN (${endIds.map(() => '?').join(',')})
-      `,
-      { replacements: [...endIds, ...endIds], type: this.db.Sequelize.QueryTypes.SELECT }
-    );
-    const whitelistCnpjs = new Set(corRows.map(r => normDigits(r.cnpj)));
-    if (whitelistCnpjs.size === 0) throw new Error("Whitelist de corretoras vazia após aplicar os filtros informados (estado_ID). Revise os cadastros.");
-    return whitelistCnpjs;
+    const dnvLimiter = withRateLimit({ concurrency: this.dnvConcurrency, minDelayMs: this.dnvMinDelay });
+    const dias = this._eachDayYMD(inicio, fim);
+
+    const items = [];
+    // contadores de diagnóstico
+    const diag = {
+      dias_consultados: dias.length,
+      propostas_total_api: 0,
+      kept: 0,
+      drop_sem_cpf_vendedor: 0,
+      drop_excluido: 0,
+      drop_supervisor: 0,
+      drop_operadora: 0,
+      drop_status: 0,
+      drop_cont_prod: 0,
+      drop_sem_vigencia: 0,
+      drop_vig_nao_mapeada: 0,
+      drop_beneficiarios: 0,
+    };
+
+    await Promise.all(dias.map(ymd => dnvLimiter(async () => {
+      const arr = await this.dnv.listarPorDia(CNPJ_OPERADORA, ymd);
+      if (Array.isArray(arr)) diag.propostas_total_api += arr.length;
+
+      for (const it of (arr || [])) {
+        const vendedorCpf = normDigits(it?.vendedor_cpf);
+        if (!vendedorCpf) { diag.drop_sem_cpf_vendedor++; continue; }
+        if (this._isExcluido(vendedorCpf)) { diag.drop_excluido++; continue; }
+
+        // supervisor obrigatório + exato
+        const supNome = (it?.metadados?.supervisao_nome ?? '').toString().trim();
+        if (!supNome || !whitelistSuper.has(supNome)) { diag.drop_supervisor++; continue; }
+
+        // operadora obrigatória + exata
+        const operadoraNome = String(it?.metadados?.operadora_nome || '').trim();
+        if (!operadoraNome || !whitelistOper.has(operadoraNome)) { diag.drop_operadora++; continue; }
+
+        // filtros status/contrato/produto
+        const st = toLower(it?.status);
+        if (banStatus.has(st)) { diag.drop_status++; continue; }
+
+        if (!(toLower(it?.contrato) === 'ad' && toLower(it?.produto) === 'saude')) { diag.drop_cont_prod++; continue; }
+
+        // vigência: deve existir na tabela (modo estrito)
+        const vigDia = toYMD(it?.date_vigencia);
+        if (!vigDia) { diag.drop_sem_vigencia++; continue; }
+        if (!diaParaGrupo.has(vigDia)) { diag.drop_vig_nao_mapeada++; continue; }
+        const grupo = String(diaParaGrupo.get(vigDia)); // YYYY-MM do cadastro
+
+        // beneficiários > 0
+        const beneficiarios = Number(it?.beneficiarios) || 0;
+        if (beneficiarios <= 0) { diag.drop_beneficiarios++; continue; }
+
+        const totalValorCent = parseMoneyToCents(it?.total_valor);
+        const vendedorNome = String(it?.vendedor_nome || '').trim();
+
+        // confirmação por CPF (titular -> contrato)
+        const titularCpf = normDigits(Array.isArray(it?.metadados?.titulares_cpf) ? it.metadados.titulares_cpf[0] : null)
+          || normDigits(it?.contratante_cpf);
+
+        items.push({
+          propostaID: it?.propostaID, // auditoria
+          vendedorCpf,
+          vendedorNome,
+          vigDia,
+          vigMes: grupo, // vem do cadastro
+          beneficiarios,
+          totalValorCent,
+          operadoraNome,
+          supNome,
+          titularCpf,
+        });
+        diag.kept++;
+      }
+    })));
+
+    // se quiser logar em console:
+    if (process.env.RANKING_DEBUG_DNV === '1') {
+      console.log('[DNV][DIAG]', JSON.stringify(diag));
+    }
+
+    // anexa o diagnóstico para o chamador usar na mensagem de erro, se necessário
+    return { items, diag };
+  }
+
+  // -------- resolve contrato por CPF (usa a MESMA base já usada no projeto) --------
+  async _resolverContratoCodigoPorCpf(cpf) {
+    const c = normDigits(cpf);
+    if (!c) return null;
+    try {
+      const resp = await axiosCfg.https.get("/contrato/procurarPorCpfTitular", {
+        params: { cpf: c },
+        validateStatus: s => (s >= 200 && s < 300) || s === 404 || s === 400,
+      });
+      if (resp.status >= 200 && resp.status < 300) {
+        const data = resp.data;
+        const codigo = data?.codigo_do_contrato || data?.codigoContrato || data?.contrato || null;
+        return codigo ? String(codigo).trim() : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   // ------------------ pipeline principal ------------------
   async gerarEPersistir({ inicio, fim }) {
     if (!inicio || !fim) throw new Error("Parâmetros 'inicio' e 'fim' são obrigatórios");
 
-    // carrega excluídos
+    // carregar configurações
     await this._loadExcluidosSet();
+    const whitelistSuper = await this._loadSupervisoresSet();
+    const whitelistOper = await this._loadOperadorasSet();
 
-    // Vigências/grupos válidos (modo estrito)
-    const { diaParaGrupo, diasValidosNoPeriodo } = await this._carregarVigenciasValidas(inicio, fim);
+    // Vigências/grupos válidos (modo estrito, sem filtrar por período)
+    const { diaParaGrupo, diasValidosNoPeriodo } = await this._carregarVigenciasValidas();
     if (diasValidosNoPeriodo.length === 0) {
-      throw new Error("Não há vigências ativas configuradas dentro do período informado (modo estrito).");
+      throw new Error("Não há vigências ativas configuradas (tabela rk_vig_validas).");
     }
 
-    // carrega beneficiários (fallback p/ model legado)
-    let benRows;
-    try {
-      benRows = await this.db.sequelize.query(
-        "SELECT * FROM `automation_cliente_digital_beneficiarios`",
-        { type: this.db.Sequelize.QueryTypes.SELECT }
-      );
-    } catch {
-      benRows = await this.db.beneficiariosDigital.findAll({ raw: true });
-    }
+    // === NOVO: coleta vendidas via DNV + filtros estritos ===
+    const { items: dnvRows, diag: dnvDiag } = await this._coletarVendidasDNV({ inicio, fim, diaParaGrupo, whitelistSuper, whitelistOper });
 
-    const whitelistCnpjs = await this._buildWhitelistCnpjsPorEstado();
+    // Buckets por CPF (Geral)
+    const byCpfDia = new Map();       // cpf -> Map(ymd -> { rows, vidas, valor })
+    const byCpfGrupo = new Map();     // cpf -> Map(grupo -> { rows, vidas, valor })
+    const byCpfValorTotal = new Map(); // cpf -> total valor cent (para confirmado quando pago)
 
-    const byCpfContrato = new Map();
-    const byCpfDia = new Map();
-    const byCpfGrupo = new Map();
+    // Buckets por Operadora -> CPF
+    const opCpfDia = new Map();       // operadora -> Map(cpf -> Map(ymd -> { rows, vidas, valor }))
+    const opCpfGrupo = new Map();     // operadora -> Map(cpf -> Map(grupo -> { rows, vidas, valor }))
+    const opCpfValorTotal = new Map(); // operadora -> Map(cpf -> total valor cent)
 
-    for (const b of benRows) {
-      const subest = String(b.subestipulante || '').trim();
-      if (subest.toLowerCase() === 'empresas') continue;
+    for (const r of dnvRows) {
+      const { vendedorCpf: cpf, vigDia, vigMes, operadoraNome: op } = r;
 
-      const cpf = normDigits(b.documento_corretor || b.documento_corretora);
-      if (!cpf) continue;
-      if (this._isExcluido(cpf)) continue; // << excluídos
-
-      if (whitelistCnpjs) {
-        const cnpj = normDigits(b.documento_corretora || b.documento_corretor || b.cnpj_corretora);
-        if (!cnpj || !whitelistCnpjs.has(cnpj)) continue;
-      }
-
-      const ymd = toYMD(b.vigencia);
-      if (!ymd) continue;
-      if (!diaParaGrupo.has(ymd)) continue;
-      const grupo = String(diaParaGrupo.get(ymd));
-
-      const rawCod = String(b.codigo_do_contrato || '');
-      const cod = normContrato(rawCod);
-
-      // por contrato
-      let mapContrato = byCpfContrato.get(cpf);
-      if (!mapContrato) { mapContrato = new Map(); byCpfContrato.set(cpf, mapContrato); }
-      if (cod) {
-        let entry = mapContrato.get(cod);
-        if (!entry) { entry = { valorContratoCent: 0, rows: [], grupos: new Set(), dias: new Set() }; mapContrato.set(cod, entry); }
-        entry.rows.push(b);
-        entry.grupos.add(grupo);
-        entry.dias.add(ymd);
-        const val = parseMoneyToCents(b.valor_contrato);
-        if (String(b.tipo_de_beneficiario || '').toLowerCase() === 'titular') {
-          if (val > 0) entry.valorContratoCent = val;
-        } else if (!entry.valorContratoCent && val > 0) {
-          entry.valorContratoCent = val;
-        }
-      }
-
-      // por dia
+      // ===== Geral =====
+      // DIA
       let mapDia = byCpfDia.get(cpf);
       if (!mapDia) { mapDia = new Map(); byCpfDia.set(cpf, mapDia); }
-      let gDia = mapDia.get(ymd);
-      if (!gDia) { gDia = { rows: [], contratos: new Set() }; mapDia.set(ymd, gDia); }
-      gDia.rows.push(b);
-      if (cod) gDia.contratos.add(cod);
+      let bDia = mapDia.get(vigDia);
+      if (!bDia) { bDia = { rows: [], valor: 0, vidas: 0 }; mapDia.set(vigDia, bDia); }
+      bDia.rows.push(r);
+      bDia.vidas += r.beneficiarios;
+      bDia.valor += r.totalValorCent;
 
-      // por grupo
+      // MES/grupo (do cadastro)
       let mapGrupo = byCpfGrupo.get(cpf);
       if (!mapGrupo) { mapGrupo = new Map(); byCpfGrupo.set(cpf, mapGrupo); }
-      let gGrupo = mapGrupo.get(grupo);
-      if (!gGrupo) { gGrupo = { rows: [], contratos: new Set() }; mapGrupo.set(grupo, gGrupo); }
-      gGrupo.rows.push(b);
-      if (cod) gGrupo.contratos.add(cod);
+      let bGrupo = mapGrupo.get(vigMes);
+      if (!bGrupo) { bGrupo = { rows: [], valor: 0, vidas: 0 }; mapGrupo.set(vigMes, bGrupo); }
+      bGrupo.rows.push(r);
+      bGrupo.vidas += r.beneficiarios;
+      bGrupo.valor += r.totalValorCent;
+
+      // total por CPF
+      const v = byCpfValorTotal.get(cpf) || 0;
+      byCpfValorTotal.set(cpf, v + r.totalValorCent);
+
+      // ===== Por Operadora =====
+      const getOpMap = (map) => {
+        let m = map.get(op);
+        if (!m) { m = new Map(); map.set(op, m); }
+        return m;
+      };
+
+      // DIA por Operadora
+      {
+        const mapCpf = getOpMap(opCpfDia);
+        let mapDiaOp = mapCpf.get(cpf);
+        if (!mapDiaOp) { mapDiaOp = new Map(); mapCpf.set(cpf, mapDiaOp); }
+        let bDiaOp = mapDiaOp.get(vigDia);
+        if (!bDiaOp) { bDiaOp = { rows: [], valor: 0, vidas: 0 }; mapDiaOp.set(vigDia, bDiaOp); }
+        bDiaOp.rows.push(r);
+        bDiaOp.vidas += r.beneficiarios;
+        bDiaOp.valor += r.totalValorCent;
+      }
+
+      // MES por Operadora
+      {
+        const mapCpf = getOpMap(opCpfGrupo);
+        let mapGrupoOp = mapCpf.get(cpf);
+        if (!mapGrupoOp) { mapGrupoOp = new Map(); mapCpf.set(cpf, mapGrupoOp); }
+        let bGrupoOp = mapGrupoOp.get(vigMes);
+        if (!bGrupoOp) { bGrupoOp = { rows: [], valor: 0, vidas: 0 }; mapGrupoOp.set(vigMes, bGrupoOp); }
+        bGrupoOp.rows.push(r);
+        bGrupoOp.vidas += r.beneficiarios;
+        bGrupoOp.valor += r.totalValorCent;
+      }
+
+      // TOTAL por CPF na operadora
+      {
+        let mapVal = opCpfValorTotal.get(op);
+        if (!mapVal) { mapVal = new Map(); opCpfValorTotal.set(op, mapVal); }
+        const curr = mapVal.get(cpf) || 0;
+        mapVal.set(cpf, curr + r.totalValorCent);
+      }
     }
 
-    // status de contratos (com cache persistente e rate limit)
+    // === Confirmação/Ativo por CPF (contrato + faturas) ===
     const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 200 });
-    const contratoPago = new Map();
-    const allCodigos = new Set();
-    for (const mapContrato of byCpfContrato.values()) for (const cod of mapContrato.keys()) allCodigos.add(cod);
+    const cpfSet = new Set([...byCpfDia.keys()]);
+    const cpfToConfirm = new Map();
 
-    await Promise.all(Array.from(allCodigos).map(cod => limiter(async () => {
-      const pago = await this._getContratoPagoComCache(cod);
-      contratoPago.set(cod, pago);
+    await Promise.all(Array.from(cpfSet).map(cpf => limiter(async () => {
+      // pegar um titularCpf de amostra desse CPF
+      const sampleMap = byCpfDia.get(cpf) || new Map();
+      const firstBucket = sampleMap.values().next().value;
+      const titularCpf =
+        (firstBucket?.rows || []).map(x => normDigits(x.titularCpf)).find(Boolean) || null;
+
+      let contratoCodigo = null;
+      if (titularCpf) {
+        contratoCodigo = await this._resolverContratoCodigoPorCpf(titularCpf);
+      }
+
+      let pago = false;
+      if (contratoCodigo) {
+        pago = await this._getContratoPagoComCache(contratoCodigo); // mantém cache persistente
+      }
+
+      // Ativo: se quiser uma regra diferente, ajuste aqui.
+      const ativo = !!pago;
+
+      cpfToConfirm.set(cpf, { pago, ativo });
     })));
 
-    const onlyTit = (x) => this.soTitular ? String(x.tipo_de_beneficiario || '').toLowerCase() === 'titular' : true;
-
-    const conta = (rows, contratosSet, getValorContrato) => {
-      const vendidas = rows.filter(onlyTit).length;
-      const ativas = rows.filter(r => onlyTit(r) && isActive(r)).length;
-
-      let confirmadas = 0;
-      let confirmadasAtivas = 0;
-      for (const r of rows) {
-        if (!onlyTit(r)) continue;
-        const cod = normContrato(r.codigo_do_contrato);
-        const pago = cod && contratoPago.get(cod);
-        if (pago) {
-          confirmadas++;
-          if (isActive(r)) confirmadasAtivas++;
-        }
-      }
-
-      const contratosVendidos = contratosSet.size;
-      let contratosConfirmados = 0;
-      let valorConfirmado = 0;
-      for (const cod of contratosSet) {
-        if (contratoPago.get(cod)) {
-          contratosConfirmados++;
-          valorConfirmado += getValorContrato(cod);
-        }
-      }
-      return { vendidas, confirmadas, confirmadasAtivas, ativas, contratosVendidos, contratosConfirmados, valorConfirmado };
-    };
+    const onlyVendidas = (rows) => rows.reduce((acc, it) => acc + (it.beneficiarios || 0), 0);
 
     const linhas = [];
 
-    // TOTAL
+    const montarLinhaGeral = async (cpf, nome, janela, vigencia, rows) => {
+      const vendidas = onlyVendidas(rows);
+      const metaConf = cpfToConfirm.get(cpf) || { pago: false, ativo: false };
+
+      const confirmadas = metaConf.pago ? vendidas : 0;
+      const confirmadasAtivas = (metaConf.pago && metaConf.ativo) ? vendidas : 0;
+      const ativas = metaConf.ativo ? vendidas : 0;
+
+      const valorConfirmado = metaConf.pago ? (byCpfValorTotal.get(cpf) || 0) : 0;
+
+      const meta = await this._getMetaByCpf(cpf, rows[0]);
+
+      return {
+        operadora: OPERADORA_GERAL, // GERAL
+        escopo: 'NACIONAL',
+        uf: UF_NACIONAL,
+        janela,
+        vigencia,
+        cpf,
+        nome: nome || meta.nome || null,
+        ufMeta: meta.uf || null,
+        vendidas,
+        confirmadas,
+        confirmadasAtivas,
+        ativas,
+        contratosVendidos: 0,
+        contratosConfirmados: metaConf.pago ? 1 : 0,
+        valorConfirmado
+      };
+    };
+
+    const montarLinhaOperadora = async (operadora, cpf, nome, janela, vigencia, rows) => {
+      const vendidas = onlyVendidas(rows);
+      const metaConf = cpfToConfirm.get(cpf) || { pago: false, ativo: false };
+
+      const confirmadas = metaConf.pago ? vendidas : 0;
+      const confirmadasAtivas = (metaConf.pago && metaConf.ativo) ? vendidas : 0;
+      const ativas = metaConf.ativo ? vendidas : 0;
+
+      const valorConfirmado = metaConf.pago ? (opCpfValorTotal.get(operadora)?.get(cpf) || 0) : 0;
+
+      const meta = await this._getMetaByCpf(cpf, rows[0]);
+
+      return {
+        operadora, // POR OPERADORA
+        escopo: 'NACIONAL',
+        uf: UF_NACIONAL,
+        janela,
+        vigencia,
+        cpf,
+        nome: nome || meta.nome || null,
+        ufMeta: meta.uf || null,
+        vendidas,
+        confirmadas,
+        confirmadasAtivas,
+        ativas,
+        contratosVendidos: 0,
+        contratosConfirmados: metaConf.pago ? 1 : 0,
+        valorConfirmado
+      };
+    };
+
+    // ===== GERAL =====
+    // TOTAL por CPF
     for (const [cpf, mapDia] of byCpfDia.entries()) {
-      const allRows = [];
-      const cods = new Set();
-      for (const g of mapDia.values()) { allRows.push(...g.rows); g.contratos.forEach(c => cods.add(c)); }
-      if (!allRows.length) continue;
-
-      const meta = await this._getMetaByCpf(cpf, allRows[0]);
-      const mapContrato = byCpfContrato.get(cpf);
-      const getValor = (cod) => (mapContrato?.get(cod)?.valorContratoCent) || 0;
-      const r = conta(allRows, cods, getValor);
-
-      linhas.push({ escopo: 'NACIONAL', uf: null, janela: 'TOTAL', vigencia: null, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
-      if (meta.uf) {
-        linhas.push({ escopo: 'UF', uf: meta.uf, janela: 'TOTAL', vigencia: null, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
-      }
+      const rowsAll = [];
+      for (const b of mapDia.values()) rowsAll.push(...b.rows);
+      if (!rowsAll.length) continue;
+      const nome = rowsAll[0]?.vendedorNome || null;
+      const ln = await montarLinhaGeral(cpf, nome, 'TOTAL', null, rowsAll);
+      linhas.push(ln);
+      if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
     }
-
     // DIA
     for (const [cpf, mapDia] of byCpfDia.entries()) {
       const firstBucket = mapDia.values().next().value;
-      const meta = await this._getMetaByCpf(cpf, firstBucket?.rows?.[0]);
-      const mapContrato = byCpfContrato.get(cpf);
-      const getValor = (cod) => (mapContrato?.get(cod)?.valorContratoCent) || 0;
+      const nome = firstBucket?.rows?.[0]?.vendedorNome || null;
 
-      for (const [ymd, g] of mapDia.entries()) {
-        if (!g.rows.length) continue;
-        const r = conta(g.rows, g.contratos, getValor);
-
-        linhas.push({ escopo: 'NACIONAL', uf: null, janela: 'DIA', vigencia: ymd, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
-        if (meta.uf) {
-          linhas.push({ escopo: 'UF', uf: meta.uf, janela: 'DIA', vigencia: ymd, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
-        }
+      for (const [ymd, b] of mapDia.entries()) {
+        const ln = await montarLinhaGeral(cpf, nome, 'DIA', ymd, b.rows);
+        linhas.push(ln);
+        if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
       }
     }
-
-    // GRUPO (MES compat.)
+    // MES (grupo)
     for (const [cpf, mapGrupo] of byCpfGrupo.entries()) {
       const any = mapGrupo.values().next().value;
-      const meta = await this._getMetaByCpf(cpf, any?.rows?.[0]);
-      const mapContrato = byCpfContrato.get(cpf);
-      const getValor = (cod) => (mapContrato?.get(cod)?.valorContratoCent) || 0;
+      const nome = any?.rows?.[0]?.vendedorNome || null;
 
-      for (const [grupo, g] of mapGrupo.entries()) {
-        if (!g.rows.length) continue;
-        const r = conta(g.rows, g.contratos, getValor);
+      for (const [grupo, b] of mapGrupo.entries()) {
+        const ln = await montarLinhaGeral(cpf, nome, 'MES', grupo, b.rows);
+        linhas.push(ln);
+        if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
+      }
+    }
 
-        linhas.push({ escopo: 'NACIONAL', uf: null, janela: 'MES', vigencia: grupo, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
-        if (meta.uf) {
-          linhas.push({ escopo: 'UF', uf: meta.uf, janela: 'MES', vigencia: grupo, cpf, nome: meta.nome, ufMeta: meta.uf, ...r });
+    // ===== POR OPERADORA =====
+    // TOTAL
+    for (const [op, mapCpf] of opCpfDia.entries()) {
+      for (const [cpf, mapDia] of mapCpf.entries()) {
+        const rowsAll = [];
+        for (const b of mapDia.values()) rowsAll.push(...b.rows);
+        if (!rowsAll.length) continue;
+        const nome = rowsAll[0]?.vendedorNome || null;
+        const ln = await montarLinhaOperadora(op, cpf, nome, 'TOTAL', null, rowsAll);
+        linhas.push(ln);
+        if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
+      }
+    }
+    // DIA
+    for (const [op, mapCpf] of opCpfDia.entries()) {
+      for (const [cpf, mapDia] of mapCpf.entries()) {
+        const first = mapDia.values().next().value;
+        const nome = first?.rows?.[0]?.vendedorNome || null;
+        for (const [ymd, b] of mapDia.entries()) {
+          const ln = await montarLinhaOperadora(op, cpf, nome, 'DIA', ymd, b.rows);
+          linhas.push(ln);
+          if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
+        }
+      }
+    }
+    // MES
+    for (const [op, mapCpf] of opCpfGrupo.entries()) {
+      for (const [cpf, mapGrupo] of mapCpf.entries()) {
+        const any = mapGrupo.values().next().value;
+        const nome = any?.rows?.[0]?.vendedorNome || null;
+        for (const [grupo, b] of mapGrupo.entries()) {
+          const ln = await montarLinhaOperadora(op, cpf, nome, 'MES', grupo, b.rows);
+          linhas.push(ln);
+          if (ln.ufMeta) linhas.push({ ...ln, escopo: 'UF', uf: ln.ufMeta });
         }
       }
     }
 
-    const bucketKey = (ln) => `${ln.escopo}:${ln.uf || 'NA'}|${ln.janela}:${ln.vigencia || 'TOTAL'}`;
+    if (!linhas.length) {
+      const d = (dnvDiag || {});
+      const msg =
+        "Não há vendas elegíveis nas vigências ativas do período informado. " +
+        `[diag: dias=${d.dias_consultados ?? 'NA'}, propostas_api=${d.propostas_total_api ?? 'NA'}, ` +
+        `kept=${d.kept ?? 0}, drop_supervisor=${d.drop_supervisor ?? 0}, drop_operadora=${d.drop_operadora ?? 0}, ` +
+        `drop_status=${d.drop_status ?? 0}, drop_cont_prod=${d.drop_cont_prod ?? 0}, ` +
+        `drop_vig_nao_mapeada=${d.drop_vig_nao_mapeada ?? 0}, drop_sem_vigencia=${d.drop_sem_vigencia ?? 0}, ` +
+        `drop_excluido=${d.drop_excluido ?? 0}, drop_beneficiarios=${d.drop_beneficiarios ?? 0}]`;
+      throw new Error(msg);
+    }
+
+    // Ordenação e ranking (com separação por operadora/escopo/janela/vigência)
+    const bucketKey = (ln) =>
+      `${ln.operadora || 'GERAL'}::${ln.escopo || 'NACIONAL'}:${ln.uf || 'NA'}|${ln.janela}:${ln.vigencia || 'TOTAL'}`;
 
     const buckets = new Map();
     for (const ln of linhas) {
@@ -427,8 +662,9 @@ class RankingService {
 
       sorted.forEach((ln, i) => {
         ranked.push({
-          escopo: ln.escopo,
-          uf: ln.uf,
+          escopo: ln.escopo || 'NACIONAL',
+          uf: ln.uf || null,
+          operadora: ln.operadora || null, // campo extra (se seu model suportar)
           janela: ln.janela,
           vigencia: ln.vigencia,
           corretor_cpf: ln.cpf,
@@ -437,9 +673,9 @@ class RankingService {
           vidas_confirmadas: ln.confirmadas,
           vidas_ativas: ln.ativas,
           vidas_confirmadas_ativas: ln.confirmadasAtivas,
-          contratos_unicos_vendidos: ln.contratosVendidos,
-          contratos_unicos_confirmados: ln.contratosConfirmados,
-          valor_confirmado_contratos_cent: ln.valorConfirmado,
+          contratos_unicos_vendidos: ln.contratosVendidos || 0,
+          contratos_unicos_confirmados: ln.contratosConfirmados || 0,
+          valor_confirmado_contratos_cent: ln.valorConfirmado || 0,
           rank_confirmadas: i + 1,
           faltam_para_primeiro: Math.max(0, top1 - (isTotal ? ln.confirmadasAtivas : ln.confirmadas)),
           faltam_para_segundo: Math.max(0, top2 - (isTotal ? ln.confirmadasAtivas : ln.confirmadas)),
@@ -448,42 +684,55 @@ class RankingService {
       });
     }
 
-    if (ranked.length === 0) {
-      throw new Error("Não há vendas elegíveis nas vigências ativas do período informado.");
-    }
-
+    // Persistência
     const exec = await this.tblExec.create({
       data_inicio_campanha: new Date(inicio),
       data_fim_campanha: new Date(fim),
     });
 
-    await this.tblRes.bulkCreate(ranked.map(ln => ({
-      execucao_id: exec.id,
-      escopo: ln.escopo,
-      uf: ln.uf,
-      janela: ln.janela,
-      vigencia: ln.vigencia,
-      corretor_cpf: ln.corretor_cpf,
-      nome_corretor: ln.nome_corretor,
-      vidas_vendidas: ln.vidas_vendidas,
-      vidas_confirmadas: ln.vidas_confirmadas,
-      vidas_ativas: ln.vidas_ativas,
-      vidas_confirmadas_ativas: ln.vidas_confirmadas_ativas,
-      contratos_unicos_vendidos: ln.contratos_unicos_vendidos,
-      contratos_unicos_confirmados: ln.contratos_unicos_confirmados,
-      valor_confirmado_contratos_cent: ln.valor_confirmado_contratos_cent,
-      rank_confirmadas: ln.rank_confirmadas,
-      faltam_para_primeiro: ln.faltam_para_primeiro,
-      faltam_para_segundo: ln.faltam_para_segundo,
-      faltam_para_terceiro: ln.faltam_para_terceiro,
-    })), {
-      updateOnDuplicate: [
-        'nome_corretor', 'vidas_vendidas', 'vidas_confirmadas', 'vidas_ativas', 'vidas_confirmadas_ativas',
-        'contratos_unicos_vendidos', 'contratos_unicos_confirmados',
-        'valor_confirmado_contratos_cent', 'rank_confirmadas',
-        'faltam_para_primeiro', 'faltam_para_segundo', 'faltam_para_terceiro'
-      ]
-    });
+    // helper local para evitar NULL nas chaves
+    const normalizeScopeFields = (ln) => {
+      const isUF = (ln.escopo || 'NACIONAL').toUpperCase() === 'UF';
+      const uf_db = isUF ? String(ln.uf || 'NA').toUpperCase() : 'NA';
+      const operadora_db = ln.operadora ? String(ln.operadora).trim() : 'GERAL';
+      return { uf_db, operadora_db };
+    };
+
+    await this.tblRes.bulkCreate(
+      ranked.map(ln => {
+        const { uf_db, operadora_db } = normalizeScopeFields(ln);
+        return {
+          execucao_id: exec.id,
+          escopo: ln.escopo || 'NACIONAL',
+          uf: uf_db,                         // << nunca NULL
+          operadora: operadora_db,           // << 'GERAL' quando for “sem operadora”
+          janela: ln.janela,
+          vigencia: ln.vigencia,
+          corretor_cpf: ln.corretor_cpf,
+          nome_corretor: ln.nome_corretor,
+          vidas_vendidas: ln.vidas_vendidas,
+          vidas_confirmadas: ln.vidas_confirmadas,
+          vidas_ativas: ln.vidas_ativas,
+          vidas_confirmadas_ativas: ln.vidas_confirmadas_ativas,
+          contratos_unicos_vendidos: ln.contratos_unicos_vendidos,
+          contratos_unicos_confirmados: ln.contratos_unicos_confirmados,
+          valor_confirmado_contratos_cent: ln.valor_confirmado_contratos_cent,
+          rank_confirmadas: ln.rank_confirmadas,
+          faltam_para_primeiro: ln.faltam_para_primeiro,
+          faltam_para_segundo: ln.faltam_para_segundo,
+          faltam_para_terceiro: ln.faltam_para_terceiro,
+        };
+      }),
+      {
+        updateOnDuplicate: [
+          'nome_corretor', 'vidas_vendidas', 'vidas_confirmadas', 'vidas_ativas', 'vidas_confirmadas_ativas',
+          'contratos_unicos_vendidos', 'contratos_unicos_confirmados',
+          'valor_confirmado_contratos_cent', 'rank_confirmadas',
+          'faltam_para_primeiro', 'faltam_para_segundo', 'faltam_para_terceiro',
+          'operadora', 'uf'
+        ]
+      }
+    );
 
     return { execucaoId: exec.id };
   }
@@ -506,11 +755,16 @@ class RankingService {
     const id = await this._resolveExec(execucaoId);
     if (!id) return { execucaoId: null, top: [], alvo: null, alvo_in_top: false };
 
-    const where = { execucao_id: id, janela: 'TOTAL', vigencia: null };
-    if (String(escopo || 'NACIONAL').toUpperCase() === 'UF') {
+    const ESC = String(escopo || 'NACIONAL').toUpperCase();
+    const where = { execucao_id: id, janela: 'TOTAL', vigencia: null, operadora: OPERADORA_GERAL }; // << geral usa 'GERAL'
+    if (ESC === 'UF') {
+      if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
       where.escopo = 'UF';
-      if (uf) where.uf = String(uf).toUpperCase();
-    } else { where.escopo = 'NACIONAL'; where.uf = null; }
+      where.uf = String(uf).toUpperCase();      // uf obrigatório
+    } else {
+      where.escopo = 'NACIONAL';
+      where.uf = 'NA';                           // << nunca null
+    }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
     const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
@@ -523,7 +777,7 @@ class RankingService {
 
     let alvo = null, alvo_in_top = false;
     if (cpf) {
-      const cpfN = normDigits(cpf);
+      const cpfN = String(cpf).replace(/\D+/g, '');
       const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
@@ -554,15 +808,20 @@ class RankingService {
     const J = String(janela || '').toUpperCase();
     if (!['DIA', 'MES'].includes(J)) throw new Error("Parâmetro 'janela' deve ser DIA ou MES");
 
-    const vig = J === 'DIA' ? toYMD(vigencia) : (String(vigencia || '').slice(0, 7));
-    if (!vig) throw new Error(J === 'DIA' ? "vigencia precisa ser YYYY-MM-DD" : "vigencia precisa ser YYYY-MM");
+    const vig = J === 'DIA' ? (vigencia ? String(vigencia).trim() : null) : (vigencia ? String(vigencia).slice(0, 7) : null);
+    if (J === 'DIA' && !/^\d{4}-\d{2}-\d{2}$/.test(vig || '')) throw new Error("Para janela=DIA, use ?vigencia=YYYY-MM-DD");
+    if (J === 'MES' && !/^\d{4}-\d{2}$/.test(vig || '')) throw new Error("Para janela=MES, use ?vigencia=YYYY-MM");
 
-    const where = { execucao_id: id, janela: J, vigencia: vig };
-    if (String(escopo || 'NACIONAL').toUpperCase() === 'UF') {
-      where.escopo = 'UF';
+    const ESC = String(escopo || 'NACIONAL').toUpperCase();
+    const where = { execucao_id: id, janela: J, vigencia: vig, operadora: OPERADORA_GERAL }; // << geral usa 'GERAL'
+    if (ESC === 'UF') {
       if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
+      where.escopo = 'UF';
       where.uf = String(uf).toUpperCase();
-    } else { where.escopo = 'NACIONAL'; where.uf = null; }
+    } else {
+      where.escopo = 'NACIONAL';
+      where.uf = 'NA'; // << nunca null
+    }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
     const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
@@ -575,7 +834,7 @@ class RankingService {
 
     let alvo = null, alvo_in_top = false;
     if (cpf) {
-      const cpfN = normDigits(cpf);
+      const cpfN = String(cpf).replace(/\D+/g, '');
       const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
@@ -607,7 +866,7 @@ class RankingService {
     const J = String(janela || '').toUpperCase();
     if (!['DIA', 'MES'].includes(J)) throw new Error("Parâmetro 'janela' deve ser DIA ou MES");
 
-    const cpfN = normDigits(cpf);
+    const cpfN = String(cpf || '').replace(/\D+/g, '');
     if (!cpfN) throw new Error("Informe 'cpf' (apenas dígitos)");
 
     await this._loadExcluidosSet();
@@ -615,7 +874,8 @@ class RankingService {
       return { execucaoId: id, janela: J, cpf: cpfN, lista: [] };
     }
 
-    const where = { execucao_id: id, janela: J, escopo: 'NACIONAL', corretor_cpf: cpfN };
+    // Geral = operadora 'GERAL' e uf 'NA'
+    const where = { execucao_id: id, janela: J, escopo: 'NACIONAL', uf: 'NA', operadora: OPERADORA_GERAL, corretor_cpf: cpfN };
     const ord = [['vigencia', 'ASC']];
     const qOpts = { where, order: ord, raw: true };
     if (Number(limit) > 0) qOpts.limit = Math.min(Number(limit), 1000);
@@ -632,191 +892,166 @@ class RankingService {
     return { execucaoId: id, janela: J, cpf: cpfN, lista: rows.map(stripValor) };
   }
 
-  async consultarPorOperadora({ execucaoId, operadora, limit, cpf, incluirValor, escopo, uf }) {
+  // ===== Consulta por Operadora (TOTAL/DIA/MÊS) lendo de rk_resultados =====
+  async consultarPorOperadora({ execucaoId, operadora, janela, vigencia, escopo, uf, cpf, incluirValor, limit }) {
     const id = await this._resolveExec(execucaoId);
     if (!id) return { execucaoId: null, operadoras: [] };
 
     await this._loadExcluidosSet();
 
-    const exec = await this.tblExec.findByPk(id, { raw: true });
-    if (!exec) return { execucaoId: id, operadoras: [] };
-    const inicio = String(exec.data_inicio_campanha).slice(0, 10);
-    const fim = String(exec.data_fim_campanha).slice(0, 10);
+    // Normaliza janela/vigência
+    const J = String(janela || 'TOTAL').toUpperCase();
+    if (!['TOTAL', 'DIA', 'MES'].includes(J)) throw new Error("janela deve ser TOTAL, DIA ou MES");
 
-    const { diaParaGrupo, diasValidosNoPeriodo } = await this._carregarVigenciasValidas(inicio, fim);
-    if (diasValidosNoPeriodo.length === 0) {
-      return { execucaoId: id, operadoras: [], mensagem: "Não há vigências ativas no período desta execução." };
+    let V = null;
+    if (J === 'DIA') {
+      V = vigencia ? toYMD(vigencia) : null;
+      if (V === null && vigencia) throw new Error("Para janela=DIA, use vigencia=YYYY-MM-DD");
+    } else if (J === 'MES') {
+      V = vigencia ? String(vigencia).slice(0, 7) : null;
+      if (V && !/^\d{4}-\d{2}$/.test(V)) throw new Error("Para janela=MES, use vigencia=YYYY-MM");
+    } else {
+      V = null; // TOTAL = vigencia NULL
     }
 
-    // operadoras
-    let operadorasLista = [];
-    try {
-      const rows = await this.tblOper.findAll({ where: { ativo: true }, raw: true }).catch(() => []);
-      operadorasLista = rows.map(r => r.nome || r.operadora || r.titulo).filter(Boolean);
-    } catch { /* ignore */ }
+    // Escopo/UF
+    const whereBase = { execucao_id: id, janela: J };
+    if (J === 'TOTAL') whereBase.vigencia = null;
+    if (J !== 'TOTAL' && V) whereBase.vigencia = V;
 
-    const filtrarTodas = !operadora || String(operadora).toLowerCase() === 'todas';
-    const alvoOperadoras = filtrarTodas ? operadorasLista : [String(operadora)];
-
-    // beneficiários
-    let benRows;
-    try {
-      benRows = await this.db.sequelize.query(
-        "SELECT * FROM `automation_cliente_digital_beneficiarios`",
-        { type: this.db.Sequelize.QueryTypes.SELECT }
-      );
-    } catch {
-      benRows = await this.db.beneficiariosDigital.findAll({ raw: true });
+    if (String(escopo || 'NACIONAL').toUpperCase() === 'UF') {
+      whereBase.escopo = 'UF';
+      if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
+      whereBase.uf = String(uf).toUpperCase();
+    } else {
+      whereBase.escopo = 'NACIONAL';
+      whereBase.uf = UF_NACIONAL;
     }
 
-    const whitelistCnpjs = await this._buildWhitelistCnpjsPorEstado();
+    // Lista de operadoras realmente existentes no recorte pedido (para diagnosticar)
+    const opsDisponiveisRows = await this.tblRes.findAll({
+      attributes: ['operadora'],
+      where: whereBase,
+      group: ['operadora'],
+      raw: true
+    });
+    const opsDisponiveis = opsDisponiveisRows
+      .map(r => (r.operadora ?? '').toString().trim())
+      .filter(Boolean);
 
-    const porOperadora = new Map();
-    const byCpfContrato = new Map();
+    // Normaliza parâmetro recebido (trim/exato)
+    const opParam = (operadora ?? '').toString().trim();
 
-    for (const b of benRows) {
-      const subest = String(b.subestipulante || '').trim();
-      if (subest.toLowerCase() === 'empresas') continue;
-
-      const cpfRow = normDigits(b.documento_corretor || b.documento_corretora);
-      if (!cpfRow) continue;
-      if (this._isExcluido(cpfRow)) continue;
-
-      if (whitelistCnpjs) {
-        const cnpj = normDigits(b.documento_corretora || b.documento_corretor || b.cnpj_corretora);
-        if (!cnpj || !whitelistCnpjs.has(cnpj)) continue;
-      }
-
-      const ymd = toYMD(b.vigencia);
-      if (!ymd) continue;
-      if (!diaParaGrupo.has(ymd)) continue;
-
-      const nomeOp = String(b.operadora || '').trim();
-      if (!nomeOp) continue;
-      if (!filtrarTodas && !alvoOperadoras.some(x => String(x).trim().toLowerCase() === nomeOp.toLowerCase())) continue;
-
-      const cod = normContrato(b.codigo_do_contrato || '');
-
-      let mapCpf = porOperadora.get(nomeOp);
-      if (!mapCpf) { mapCpf = new Map(); porOperadora.set(nomeOp, mapCpf); }
-      let bucket = mapCpf.get(cpfRow);
-      if (!bucket) { bucket = { rows: [], contratos: new Set(), sampleRow: b }; mapCpf.set(cpfRow, bucket); }
-      bucket.rows.push(b);
-      if (cod) bucket.contratos.add(cod);
-
-      if (cod) {
-        let mapContrato = byCpfContrato.get(cpfRow);
-        if (!mapContrato) { mapContrato = new Map(); byCpfContrato.set(cpfRow, mapContrato); }
-        let entry = mapContrato.get(cod);
-        if (!entry) { entry = { valorContratoCent: 0 }; mapContrato.set(cod, entry); }
-        const val = parseMoneyToCents(b.valor_contrato);
-        if (String(b.tipo_de_beneficiario || '').toLowerCase() === 'titular') {
-          if (val > 0) entry.valorContratoCent = val;
-        } else if (!entry.valorContratoCent && val > 0) {
-          entry.valorContratoCent = val;
-        }
-      }
+    // Operadoras alvo
+    let alvoOperadoras = [];
+    if (!opParam || opParam.toLowerCase() === 'todas' || opParam.toLowerCase() === 'geral') {
+      alvoOperadoras = opsDisponiveis.slice(); // todas as que existem nesse recorte
+    } else {
+      // tenta casar exatamente; se não achar, tenta um match por TRIM/case-insensitive
+      const matchExato = opsDisponiveis.find(o => o === opParam);
+      const matchICase = matchExato ? matchExato : opsDisponiveis.find(o => o.toLowerCase() === opParam.toLowerCase());
+      alvoOperadoras = matchICase ? [matchICase] : [opParam]; // ainda tenta com o param
     }
 
-    // status de contratos via cache
-    const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 200 });
-    const contratoPago = new Map();
-    const allCodigos = new Set();
-    for (const mapCpf of porOperadora.values()) for (const { contratos } of mapCpf.values()) contratos.forEach(c => allCodigos.add(c));
-    await Promise.all(Array.from(allCodigos).map(cod => limiter(async () => {
-      const pago = await this._getContratoPagoComCache(cod);
-      contratoPago.set(cod, pago);
-    })));
-
-    const onlyTit = (x) => this.soTitular ? String(x.tipo_de_beneficiario || '').toLowerCase() === 'titular' : true;
-    const getValor = (cpf, cod) => (byCpfContrato.get(cpf)?.get(cod)?.valorContratoCent) || 0;
-
-    const montarTop = async (mapCpf, nomeOperadora) => {
-      const linhas = [];
-      for (const [cpfRow, bucket] of mapCpf.entries()) {
-        const rows = bucket.rows;
-        const cods = bucket.contratos;
-        if (!rows.length) continue;
-
-        const meta = await this._getMetaByCpf(cpfRow, bucket.sampleRow);
-
-        const vendidas = rows.filter(onlyTit).length;
-        const ativas = rows.filter(r => onlyTit(r) && isActive(r)).length;
-
-        let confirmadas = 0;
-        let confirmadasAtivas = 0;
-        let valorConfirmado = 0;
-        let contratosConfirmados = 0;
-
-        for (const r of rows) {
-          if (!onlyTit(r)) continue;
-          const cod = normContrato(r.codigo_do_contrato);
-          const pago = cod && contratoPago.get(cod);
-          if (pago) {
-            confirmadas++;
-            if (isActive(r)) confirmadasAtivas++;
-          }
-        }
-        for (const cod of cods) {
-          if (contratoPago.get(cod)) {
-            contratosConfirmados++;
-            valorConfirmado += getValor(cpfRow, cod);
-          }
-        }
-
-        linhas.push({
-          operadora: nomeOperadora,
-          escopo: String(escopo || 'NACIONAL').toUpperCase() === 'UF' ? 'UF' : 'NACIONAL',
-          uf: meta.uf && String(escopo || 'NACIONAL').toUpperCase() === 'UF' ? meta.uf : null,
-          janela: 'TOTAL',
-          vigencia: null,
-          cpf: cpfRow, nome: meta.nome,
-          vendidas, confirmadas, confirmadasAtivas, ativas,
-          contratosVendidos: cods.size,
-          contratosConfirmados,
-          valorConfirmado
-        });
-      }
-
-      const sorted = linhas.sort((a, b) =>
-        (b.confirmadasAtivas - a.confirmadasAtivas) ||
-        (b.valorConfirmado - a.valorConfirmado) ||
-        (b.ativas - a.ativas) ||
-        (b.confirmadas - a.confirmadas) ||
-        (b.vendidas - a.vendidas) ||
-        String(a.nome || '').localeCompare(String(b.nome || '')) ||
-        String(a.cpf).localeCompare(String(b.cpf))
-      );
-
-      let alvo = null, alvo_in_top = false;
-      if (cpf) {
-        const cpfN = normDigits(cpf);
-        alvo = sorted.find(r => r.cpf === cpfN) || null;
-        if (alvo) alvo_in_top = true;
-      }
-
-      const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
-      const top = lim ? sorted.slice(0, lim) : sorted;
-
-      const stripValor = (r) => {
-        if (!r) return r;
-        if (String(incluirValor) === 'true') return r;
-        const { valorConfirmado, ...rest } = r;
-        return rest;
-      };
-
-      return { operadora: nomeOperadora, top: top.map(stripValor), alvo: stripValor(alvo), alvo_in_top };
+    const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
+    const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
+    const stripValor = (r) => {
+      if (!r) return r;
+      if (String(incluirValor) === 'true') return r;
+      const { valor_confirmado_contratos_cent, ...rest } = r;
+      return rest;
     };
 
-    const respostas = [];
-    const conjunto = filtrarTodas ? (operadorasLista.length ? operadorasLista : Array.from(porOperadora.keys())) : alvoOperadoras;
-    for (const nome of conjunto) {
-      const mapCpf = porOperadora.get(nome) || new Map();
-      const pacote = await montarTop(mapCpf, nome);
-      respostas.push(pacote);
+    const resultados = [];
+    for (const opNome of alvoOperadoras) {
+      const where = { ...whereBase, operadora: opNome };
+      const qOpts = { where, order: ord, raw: true };
+      if (lim) qOpts.limit = lim * 3;
+
+      let topRows = await this.tblRes.findAll(qOpts);
+      topRows = await this._filterOutExcluidos(topRows);
+      if (lim) topRows = topRows.slice(0, lim);
+
+      let alvoRow = null, alvo_in_top = false;
+      if (cpf) {
+        const cpfN = normDigits(cpf);
+        const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
+        if (a && !(await this._isExcluido(cpfN))) alvoRow = a;
+        if (alvoRow && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
+      }
+
+      resultados.push({
+        operadora: opNome,
+        escopo: where.escopo,
+        uf: where.uf || null,
+        janela: J,
+        vigencia: where.vigencia || null,
+        top: topRows.map(stripValor),
+        alvo: stripValor(alvoRow),
+        alvo_in_top,
+        // campo auxiliar de diagnóstico (só quando vazio)
+        _diag: topRows.length ? undefined : {
+          opsDisponiveis, // operadoras realmente existentes nesse recorte
+          whereBase,      // para conferir janela/vigencia/escopo
+        }
+      });
     }
 
-    return { execucaoId: id, operadoras: respostas };
+    return { execucaoId: id, operadoras: resultados };
+  }
+
+  async consultarVigenciasCpfPorOperadora({ execucaoId, janela, cpf, operadora, escopo, uf, incluirValor, limit }) {
+    const id = await this._resolveExec(execucaoId);
+    if (!id) return { execucaoId: null, janela, cpf: null, operadora: null, lista: [] };
+
+    const J = String(janela || '').toUpperCase();
+    if (!['DIA', 'MES'].includes(J)) throw new Error("Parâmetro 'janela' deve ser DIA ou MES");
+
+    const cpfN = String(cpf || '').replace(/\D+/g, '');
+    if (!cpfN) throw new Error("Informe 'cpf' (apenas dígitos)");
+
+    await this._loadExcluidosSet();
+    if (this._isExcluido(cpfN)) {
+      return { execucaoId: id, janela: J, cpf: cpfN, operadora: null, lista: [] };
+    }
+
+    // Normaliza operadora: 'GERAL' quando vazio/“geral”
+    let op = (operadora ?? '').toString().trim();
+    if (!op || op.toLowerCase() === 'geral' || op.toLowerCase() === 'todas') op = 'GERAL';
+
+    // Escopo/UF
+    const ESC = String(escopo || 'NACIONAL').toUpperCase();
+    const where = { execucao_id: id, janela: J, escopo: ESC, operadora: op, corretor_cpf: cpfN };
+
+    if (ESC === 'UF') {
+      if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
+      where.uf = String(uf).toUpperCase();
+    } else {
+      where.uf = 'NA'; // padronização p/ nacional
+    }
+
+    const ord = [['vigencia', 'ASC']];
+    const qOpts = { where, order: ord, raw: true };
+    if (Number(limit) > 0) qOpts.limit = Math.min(Number(limit), 1000);
+
+    let rows = await this.tblRes.findAll(qOpts);
+
+    const stripValor = (r) => {
+      if (!r) return r;
+      if (String(incluirValor) === 'true') return r;
+      const { valor_confirmado_contratos_cent, ...rest } = r;
+      return rest;
+    };
+
+    return {
+      execucaoId: id,
+      janela: J,
+      cpf: cpfN,
+      operadora: op,
+      escopo: where.escopo,
+      uf: where.uf,
+      lista: rows.map(stripValor)
+    };
   }
 }
 

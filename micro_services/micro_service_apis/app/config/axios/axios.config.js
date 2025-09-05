@@ -63,34 +63,54 @@ const buildHttpsAgent = () => new https.Agent({
     scheduling: 'fifo',
 });
 
-const createInstance = ({ baseURL, token, senhaApi }) => {
-    const headers = {};
-    if (token) headers['token'] = token;
-    if (senhaApi) headers['senhaApi'] = senhaApi;
-
+const createInstance = ({ baseURL, headers = {} }) => {
     return axios.create({
         baseURL,
         headers,
         timeout: HTTP_TIMEOUT_MS,
         httpAgent: buildHttpAgent(),
         httpsAgent: buildHttpsAgent(),
-        // validateStatus: s => s >= 200 && s < 300, // default
     });
 };
 
 const httpsInstance = createInstance({
-    baseURL: process.env.BASEURL,
-    token: process.env.TOKEN || process.env.token,
-    senhaApi: process.env.SENHA_API || process.env.senhaApi,
+    baseURL: process.env.BASEURL, // ex.: https://api.seuservico.com
+    headers: {
+        token: process.env.TOKEN || process.env.token,
+        senhaApi: process.env.SENHA_API || process.env.senhaApi,
+    },
 });
 
+/**
+ * FATURAS (Digital) — liquidadas por contrato
+ * - GET /fatura/procurarLiquidadasPorContrato?codigoContrato=...
+ */
 const httpsDigitalInstance = createInstance({
     baseURL: process.env.BASEURL_DIGITAL || process.env.DIGITAL_BASE_URL,
-    token: process.env.DIGITAL_TOKEN || process.env.TOKEN || process.env.token,
-    senhaApi: process.env.DIGITAL_SENHA_API || process.env.SENHA_API || process.env.senhaApi,
+    headers: {
+        token: process.env.DIGITAL_TOKEN || process.env.TOKEN || process.env.token,
+        senhaApi: process.env.DIGITAL_SENHA_API || process.env.SENHA_API || process.env.senhaApi,
+    },
+});
+
+/**
+ * DNV (Planium) — propostas por período
+ * - POST /prod/proposta/consulta/v1
+ *   Header: Planium-apikey: <chave>
+ *   Body: { cnpj_operadora, data_inicio, data_fim }
+ */
+const dnvBaseUrl = process.env.BASEURLPLANIUM || 'https://dnv-api.planium.io/prod/';
+const httpsDnvInstance = createInstance({
+    baseURL: dnvBaseUrl,
+    headers: {
+        'Planium-apikey': process.env.apikeyplanium,
+        // se precisar content-type explícito:
+        // 'Content-Type': 'application/json',
+    },
 });
 
 module.exports = {
-    https: httpsInstance,              // contratos (contrato/procurarPorCpfTitular)
-    https_digital: httpsDigitalInstance // faturas (/fatura/...)
+    https: httpsInstance,             // contratos
+    https_digital: httpsDigitalInstance, // faturas
+    https_dnv: httpsDnvInstance,      // DNV (Planium)
 };
