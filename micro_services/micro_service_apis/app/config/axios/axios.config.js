@@ -110,7 +110,7 @@ const httpsDnvInstance = createInstance({
 });
 
 module.exports = {
-    https: httpsInstance,             // contratos
+    // https: httpsInstance,             // contratos
     https_digital: httpsDigitalInstance, // faturas
     https_dnv: httpsDnvInstance,      // DNV (Planium)
 };
