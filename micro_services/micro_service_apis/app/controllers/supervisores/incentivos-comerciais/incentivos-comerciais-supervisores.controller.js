@@ -3,6 +3,8 @@ const { raw } = require("body-parser");
 const db = require("../../../../../../models");
 const Corretora = db.corretoras;
 
+const utils = require("./utils");
+
 const IncentiveRepository = require("./repositories/incentivos.repository");
 const { validateIncentivePayload } = require("./validators/incentive-validators");
 const corretoraModel = require("../../../../../../models/corretoras/corretora.model");
@@ -538,6 +540,7 @@ class IncentiveController {
         const fields = [
             // { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
             { label: 'Nome do Contratante', value: 'contratante_nome' },
+            { label: 'Mes do Desafio', value: row => `${utils(row.incentivo.end_challenge_date.split('T')[0])}` },
             { label: 'CPF do titular', value: row => `'${row.contratante_cpf}` },
             { label: 'Data Pagamento', value: 'data_pagamento' },
             { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
@@ -558,10 +561,46 @@ class IncentiveController {
         // res.attachment('pagamentos.csv');
         // return res.send(csv);
 
+        const propostas = incentivos.reduce((acc, proposta) => {
+            const { corretora_nome, beneficiarios, incentivo, } = proposta;
+            console.log(proposta);
+            const nomeCorretora = corretora_nome + incentivo.end_challenge_date.split('T')[0];
+            
+            // inicializa a corretora se ainda não existir
+            if (!acc[nomeCorretora]) {
+                acc[nomeCorretora] = {
+                    corretora_nome,
+                    totalPropostas: 0,
+                    totalBeneficiarios: 0,
+                    valorTotal: 0,
+                    dataDesafio: '',
+                    valorVidas: 0,
+                    metaVidas: 0
+                    // propostas: [] // opcional, se quiser listar as propostas
+                };
+            }
+
+            // atualiza os dados
+            acc[nomeCorretora].totalPropostas += 1;
+            acc[nomeCorretora].totalBeneficiarios += beneficiarios;
+            acc[nomeCorretora].valorTotal += beneficiarios * incentivo.payment_life;
+            acc[nomeCorretora].valorVidas = incentivo.payment_life;
+            acc[nomeCorretora].metaVidas = incentivo.life_goal;
+            acc[nomeCorretora].dataDesafio = incentivo.end_challenge_date.split('T')[0];
+
+            return acc;
+        }, {});
+
+        // propostas.forEach(proposta => {
+        //     proposta.totalBeneficiarios * 
+        // })
+        const propostasAgrupadas = Object.values(propostas);
+        // console.log('Propostas agrupadas e em array: ', propostas);
+
         return res.status(201).json({
             sucesso: true,
             message: 'Lista encontrada com sucesso',
-            data: incentivos,
+            data: propostasAgrupadas,
             csv: Buffer.from(csv).toString('base64')
         })
     }
