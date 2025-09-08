@@ -1,4 +1,3 @@
-// services/planium/PlaniumDnvClient.js
 const axiosCfg = require("../../config/axios/axios.config");
 
 class PlaniumDnvClient {
@@ -7,6 +6,11 @@ class PlaniumDnvClient {
         if (!this.inst) {
             throw new Error("Instância https_dnv inexistente. Verifique config/axios/axios.config.js");
         }
+        // Permite ajustar via env sem mexer no código. Default: 2025-09-01
+        this.MIN_DATE_SIG = "2025-09-01";
+
+        // UFs permitidas no filtro
+        this.ALLOWED_UFS = new Set(["GO", "DF"]);
     }
 
     // Normaliza diferentes formatos de resposta da DNV
@@ -14,18 +18,11 @@ class PlaniumDnvClient {
         const d = resp?.data;
         if (!d) return [];
 
-        // Caso padrão observado:
-        // { retcode: 0, propostas: [...] }
         if (Array.isArray(d.propostas)) return d.propostas;
-
-        // Alguns serviços usam 'result'
         if (Array.isArray(d.result)) return d.result;
-
-        // Às vezes a API já retorna array na raiz
         if (Array.isArray(d)) return d;
 
-        // Última tentativa: se houver objeto com chave 'propostas' não-array, evita quebrar
-        if (d.propostas && typeof d.propostas === 'object') {
+        if (d.propostas && typeof d.propostas === "object") {
             const vals = Object.values(d.propostas);
             if (Array.isArray(vals) && Array.isArray(vals[0])) return vals[0];
         }
@@ -33,11 +30,24 @@ class PlaniumDnvClient {
         return [];
     }
 
-    /**
-     * POST /prod/proposta/consulta/v1
-     * headers: Planium-apikey (configurado na instância)
-     * body: { cnpj_operadora, data_inicio, data_fim }
-     */
+    // Filtra por date_sig >= MIN_DATE_SIG e UF permitida
+    _filter(arr) {
+        const min = this.MIN_DATE_SIG;
+        const allowedUFs = this.ALLOWED_UFS;
+
+        const filtered = (arr || []).filter(p => {
+            const ds = p?.date_sig;
+            const uf = (p?.uf || "").toString().trim().toUpperCase();
+            return typeof ds === "string" && ds >= min && allowedUFs.has(uf);
+        });
+
+        if (process.env.RANKING_DEBUG_DNV === "1") {
+            console.log(`[DNV] filtros aplicados (date_sig >= ${min}, uf in ${Array.from(allowedUFs).join(",")})`);
+            console.log(`antes=${arr?.length || 0} depois=${filtered.length}`);
+        }
+        return filtered;
+    }
+
     async consultarPeriodo({ cnpj_operadora, data_inicio, data_fim }) {
         const payload = { cnpj_operadora, data_inicio, data_fim };
         const url = "proposta/consulta/v1";
@@ -50,7 +60,9 @@ class PlaniumDnvClient {
         if (process.env.RANKING_DEBUG_DNV === "1") {
             console.log(`[DNV] periodo=${data_inicio}..${data_fim} ret=${arr.length}`);
         }
-        return arr;
+
+        // ✅ aplica os filtros (date_sig + uf)
+        return this._filter(arr);
     }
 
     async listarPorDia(cnpj_operadora, ymd) {

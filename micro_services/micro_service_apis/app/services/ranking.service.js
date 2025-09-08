@@ -92,6 +92,8 @@ class RankingService {
     // DNV limits
     this.dnvConcurrency = Number(process.env.DNV_CONCURRENCY || 4);
     this.dnvMinDelay = Number(process.env.DNV_MIN_DELAY_MS || 150);
+
+    this.allowNullSupervisor = '1';
   }
 
   // -------- exclusões --------
@@ -277,8 +279,22 @@ class RankingService {
         if (this._isExcluido(vendedorCpf)) { diag.drop_excluido++; continue; }
 
         // supervisor obrigatório + exato
-        const supNome = (it?.metadados?.supervisao_nome ?? '').toString().trim();
-        if (!supNome || !whitelistSuper.has(supNome)) { diag.drop_supervisor++; continue; }
+        const supNomeRaw = it?.metadados?.supervisao_nome;
+        const supNome = (supNomeRaw ?? '').toString().trim();
+        const supIsNullish = supNomeRaw == null || supNome === '';
+
+        if (supIsNullish) {
+          if (!this.allowNullSupervisor) {
+            diag.drop_supervisor++;
+            continue;
+          }
+          // quando permitido, segue com supNome = null
+        } else {
+          if (!whitelistSuper.has(supNome)) {
+            diag.drop_supervisor++;
+            continue;
+          }
+        }
 
         // operadora obrigatória + exata
         const operadoraNome = String(it?.metadados?.operadora_nome || '').trim();
@@ -288,7 +304,8 @@ class RankingService {
         const st = toLower(it?.status);
         if (banStatus.has(st)) { diag.drop_status++; continue; }
 
-        if (!(toLower(it?.contrato) === 'ad' && toLower(it?.produto) === 'saude')) { diag.drop_cont_prod++; continue; }
+        // if (!(toLower(it?.contrato) === 'ad' && toLower(it?.produto) === 'saude')) { diag.drop_cont_prod++; continue; }
+        if (!(toLower(it?.contrato) === 'ad')) { diag.drop_cont_prod++; continue; }
 
         // vigência: deve existir na tabela (modo estrito)
         const vigDia = toYMD(it?.date_vigencia);
@@ -316,7 +333,7 @@ class RankingService {
           beneficiarios,
           totalValorCent,
           operadoraNome,
-          supNome,
+          supNome: supIsNullish ? null : supNome,
           titularCpf,
         });
         diag.kept++;
@@ -487,6 +504,7 @@ class RankingService {
       const ativas = metaConf.ativo ? vendidas : 0;
 
       const valorConfirmado = metaConf.pago ? (byCpfValorTotal.get(cpf) || 0) : 0;
+      const valorTotalVendido = byCpfValorTotal.get(cpf) || 0;
 
       const meta = await this._getMetaByCpf(cpf, rows[0]);
 
@@ -505,7 +523,8 @@ class RankingService {
         ativas,
         contratosVendidos: 0,
         contratosConfirmados: metaConf.pago ? 1 : 0,
-        valorConfirmado
+        valorConfirmado,
+        valorTotalVendido
       };
     };
 
@@ -518,6 +537,7 @@ class RankingService {
       const ativas = metaConf.ativo ? vendidas : 0;
 
       const valorConfirmado = metaConf.pago ? (opCpfValorTotal.get(operadora)?.get(cpf) || 0) : 0;
+      const valorTotalVendido = opCpfValorTotal.get(operadora)?.get(cpf) || 0;
 
       const meta = await this._getMetaByCpf(cpf, rows[0]);
 
@@ -536,7 +556,8 @@ class RankingService {
         ativas,
         contratosVendidos: 0,
         contratosConfirmados: metaConf.pago ? 1 : 0,
-        valorConfirmado
+        valorConfirmado,
+        valorTotalVendido
       };
     };
 
@@ -646,12 +667,14 @@ class RankingService {
             (b.ativas - a.ativas) ||
             (b.confirmadas - a.confirmadas) ||
             (b.vendidas - a.vendidas) ||
+            ((b.valorTotalVendido || 0) - (a.valorTotalVendido || 0)) ||
             String(a.nome || '').localeCompare(String(b.nome || '')) ||
             String(a.cpf).localeCompare(String(b.cpf));
         } else {
           return (b.confirmadas - a.confirmadas) ||
             (b.valorConfirmado - a.valorConfirmado) ||
             (b.vendidas - a.vendidas) ||
+            ((b.valorTotalVendido || 0) - (a.valorTotalVendido || 0)) ||
             String(a.nome || '').localeCompare(String(b.nome || '')) ||
             String(a.cpf).localeCompare(String(b.cpf));
         }
