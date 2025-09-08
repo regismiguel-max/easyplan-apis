@@ -1,29 +1,22 @@
-// cron/cronRanking.js
 const { CronJob } = require("cron");
 const axios = require("axios");
+const https = require("https");
 
 const TZ = "America/Sao_Paulo";
 const DATA_INICIO_FIXA = "2025-09-01";
 
-console.log("📅 CronRanking carregado e aguardando próximas execuções...");
+// se o 3088 tiver HTTPS self-signed internamente, isto evita erro de certificado
+const relaxAgent = new https.Agent({ rejectUnauthorized: false });
 
-// pega a data "agora" no fuso de SP e soma +1 dia, retornando YYYY-MM-DD
 function getDataFimSaoPauloMaisUm() {
     const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: TZ,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
+        timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
     }).formatToParts(new Date());
-
     const y = Number(parts.find(p => p.type === "year").value);
     const m = Number(parts.find(p => p.type === "month").value);
     const d = Number(parts.find(p => p.type === "day").value);
-
-    // cria um Date em UTC mas com os componentes do fuso (evita drift)
     const zoned = new Date(Date.UTC(y, m - 1, d));
-    zoned.setUTCDate(zoned.getUTCDate() + 1); // +1 dia
-
+    zoned.setUTCDate(zoned.getUTCDate() + 1);
     const yy = zoned.getUTCFullYear();
     const mm = String(zoned.getUTCMonth() + 1).padStart(2, "0");
     const dd = String(zoned.getUTCDate()).padStart(2, "0");
@@ -31,36 +24,37 @@ function getDataFimSaoPauloMaisUm() {
 }
 
 async function gerarRanking() {
-    try {
-        const dataFim = getDataFimSaoPauloMaisUm();
-        const url = `https://apis.easyplan.com.br:3088/api/ranking/gerar?inicio=${DATA_INICIO_FIXA}&fim=${dataFim}`;
+    const fim = getDataFimSaoPauloMaisUm();
+    const url = `https://apis.easyplan.com.br:3088/api/ranking/gerar?inicio=${DATA_INICIO_FIXA}&fim=${fim}`;
 
-        console.log(`⏩ [${new Date().toISOString()}] Chamando: ${url}`);
-        const { data, status } = await axios.get(url, { timeout: 60000 });
+    try {
+        console.log(`⏩ [${new Date().toISOString()}] POST ${url}`);
+        const { data, status } = await axios.post(url, null, {
+            timeout: 60000,
+            httpsAgent: relaxAgent,
+            // headers: { 'Content-Type': 'application/json' }
+        });
         console.log(`✅ Ranking OK (HTTP ${status})`, data);
+        return data;
     } catch (err) {
         const http = err?.response?.status;
         const body = err?.response?.data;
         console.error("❌ Erro ao gerar ranking:", http || err.code || err.message, body || "");
+        throw err;
     }
 }
 
-// Expressão CRON correta (6 campos): seg min hora diaDoMes mes diaDaSemana
-// 0 0 0,8,14,18 * *  -> às 00:00, 08:00, 14:00 e 18:00 todos os dias
 const jobRanking = new CronJob(
-    "0 0 0,8,10,12,16,18 * * *",
+    "0 0 0,7,9,11,14,16,19 * * *",
     async () => {
         console.log("⏰ Disparo do Cron Ranking...");
         await gerarRanking();
     },
     null,
-    false,              // start manual para logar .nextDates() antes
-    TZ,
-    null,
-    false               // runOnInit = false (mude para true se quiser testar no boot)
+    true, // inicia automaticamente
+    TZ
 );
 
-// diagnóstico: log das próximas execuções e iniciar
 try {
     console.log("📆 Próximas execuções:", jobRanking.nextDates(4).map(d => d.toString()));
 } catch (e) {
