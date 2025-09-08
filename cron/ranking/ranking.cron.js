@@ -45,7 +45,7 @@ async function gerarRanking() {
 }
 
 const jobRanking = new CronJob(
-    "0 0 0,7,9,11,14,16,19 * * *",
+    "0 0 0,7,9,14,19 * * *",
     async () => {
         console.log("⏰ Disparo do Cron Ranking...");
         await gerarRanking();
@@ -56,7 +56,7 @@ const jobRanking = new CronJob(
 );
 
 try {
-    console.log("📆 Próximas execuções:", jobRanking.nextDates(4).map(d => d.toString()));
+    console.log("📆 Próximas execuções:", jobRanking.nextDates(5).map(d => d.toString()));
 } catch (e) {
     console.warn("⚠️ Não foi possível calcular próximas datas:", e?.message);
 }
