@@ -195,6 +195,89 @@ function hamming14(a, b) {
     return d;
 }
 
+/* ========================= Helper: visão-only ========================= */
+async function extrairValidarPorVisao(fileBuffer, subLoteCommissionsId, prestadorEsperado, tomadorEsperado) {
+    try {
+        const conv = await pdfBufferToPngPaths(fileBuffer, { from: 1, to: VISION_PAGES, scaleTo: VISION_SCALE_TO });
+        let camposBrutosVisao = null;
+        try {
+            camposBrutosVisao = await extrairCamposComVisionFromPngs(conv.paths);
+        } finally {
+            conv.cleanup();
+        }
+        if (!camposBrutosVisao) {
+            return {
+                ok: false,
+                payload: {
+                    sucesso: false,
+                    mensagem: 'O PDF enviado não contém texto legível e a extração por visão falhou.',
+                    via: 'visao',
+                    camposExtraidos: null,
+                    camposEsperados: null,
+                    camposComErro: ['texto']
+                }
+            };
+        }
+
+        let camposExtraidos = mapearCamposExtraidos(camposBrutosVisao);
+        camposExtraidos.competencia = normalizarCompetencia(camposExtraidos.competencia);
+
+        camposExtraidos = tryFixValorFromFontes(camposExtraidos);
+        if (camposExtraidos._fontes?.linhasRelevantes?.length) {
+            camposExtraidos.prestadorCpfCnpj = tryFixDocFromFontesByRole(camposExtraidos.prestadorCpfCnpj, camposExtraidos._fontes, 'prestador');
+            camposExtraidos.tomadorCpfCnpj = tryFixDocFromFontesByRole(camposExtraidos.tomadorCpfCnpj, camposExtraidos._fontes, 'tomador');
+            camposExtraidos = tryFixDataFromFontes(camposExtraidos);
+        }
+
+        camposExtraidos = fuzzyAssignDocs(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
+        camposExtraidos = reconciliarDocsSeIguais(camposExtraidos, camposExtraidos._fontes, prestadorEsperado, tomadorEsperado);
+
+        const antes = { prestador: camposExtraidos.prestadorCpfCnpj, tomador: camposExtraidos.tomadorCpfCnpj };
+        camposExtraidos = autoCorrigirInversaoPorEsperado(camposExtraidos, prestadorEsperado, tomadorEsperado);
+        camposExtraidos._antesPrestTom = antes;
+
+        const resultado = await validarComSubLote(camposExtraidos, subLoteCommissionsId);
+        if (resultado.valido) {
+            return {
+                ok: true,
+                payload: {
+                    sucesso: true,
+                    mensagem: 'Nota fiscal validada com sucesso.',
+                    via: 'visao',
+                    camposExtraidos,
+                    camposEsperados: resultado.camposEsperados,
+                    camposComErro: []
+                }
+            };
+        }
+        return {
+            ok: false,
+            payload: {
+                sucesso: false,
+                mensagem: resultado.motivo,
+                via: 'visao',
+                camposExtraidos,
+                camposEsperados: resultado.camposEsperados,
+                camposComErro: resultado.camposComErro
+            }
+        };
+    } catch (e) {
+        return {
+            ok: false,
+            payload: {
+                sucesso: false,
+                mensagem: 'O PDF enviado não contém texto legível para leitura automática.',
+                detalhe: e.message,
+                dica: 'Verifique instalação do Poppler (defina PDFTOPPM_PATH ou POPPLER_BIN no .env).',
+                via: 'visao',
+                camposExtraidos: null,
+                camposEsperados: null,
+                camposComErro: ['texto']
+            }
+        };
+    }
+}
+
 /* ============== Pós-processo a partir das "fontes" (fallback visão) ============== */
 function tryFixValorFromFontes(campos) {
     if (campos.valorTotal) return campos;
@@ -1023,14 +1106,30 @@ const uploadNotaController = async (req, res) => {
                     camposComErro: []
                 });
             }
-            return res.status(422).json({
-                sucesso: false,
-                mensagem: resultado.motivo,
-                via: (camposExtraidos._valorBrutoFonte === 'visao-crosscheck' ? 'texto+visao' : 'texto'),
-                camposExtraidos,
-                camposEsperados: resultado.camposEsperados,
-                camposComErro: resultado.camposComErro
-            });
+            // return res.status(422).json({
+            //     sucesso: false,
+            //     mensagem: resultado.motivo,
+            //     via: (camposExtraidos._valorBrutoFonte === 'visao-crosscheck' ? 'texto+visao' : 'texto'),
+            //     camposExtraidos,
+            //     camposEsperados: resultado.camposEsperados,
+            //     camposComErro: resultado.camposComErro
+            // });
+
+            /* >>> NOVO: se texto(+visao-crosscheck) falhar, tentar visão-only antes de retornar 422 */
+            const visaoFallback = await extrairValidarPorVisao(
+                file.buffer,
+                subLoteCommissionsId,
+                prestadorEsperado,
+                tomadorEsperado
+            );
+
+            if (visaoFallback.ok) {
+                // sucesso via visão
+                return res.json(visaoFallback.payload);
+            }
+
+            // se visão também falhar, devolve o erro da visão (mais útil neste cenário)
+            return res.status(422).json(visaoFallback.payload);
         }
 
         // (B) Fallback VISÃO — apenas quando não há texto legível
