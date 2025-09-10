@@ -209,6 +209,30 @@ class RankingService {
     return meta;
   }
 
+  // ---------- NOVO: buscar imagens por CPF no model produtores ----------
+  async _getImgUrlMapByCpfs(cpfs = []) {
+    const map = new Map();
+    try {
+      const uniq = Array.from(new Set((cpfs || []).map(c => normDigits(c)).filter(Boolean)));
+      if (!uniq.length) return map;
+      const Prod = this.db?.produtores;
+      if (!Prod) return map;
+
+      const rows = await Prod.findAll({
+        attributes: ['cpf', 'imagem_gladiador_URL'],
+        where: { cpf: uniq },
+        raw: true
+      });
+
+      for (const r of rows || []) {
+        const c = normDigits(r.cpf);
+        if (c) map.set(c, r.imagem_gladiador_URL || null);
+      }
+    } catch { /* silencioso para não quebrar consultas */ }
+    return map;
+  }
+  // ---------------------------------------------------------------------
+
   // -------- vigências válidas (modo estrito, sem filtrar por início/fim) --------
   async _carregarVigenciasValidas() {
     const confRows = await this.tblVig?.findAll({ where: { ativo: true }, raw: true }).catch(() => []);
@@ -798,12 +822,25 @@ class RankingService {
     topRows = await this._filterOutExcluidos(topRows);
     if (lim) topRows = topRows.slice(0, lim);
 
+    // 🔹 imagens para o TOP
+    if (topRows.length) {
+      const cpfsTop = topRows.map(r => r.corretor_cpf);
+      const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
+      topRows = topRows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(r.corretor_cpf) || null }));
+    }
+
     let alvo = null, alvo_in_top = false;
     if (cpf) {
       const cpfN = String(cpf).replace(/\D+/g, '');
       const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
+
+      // 🔹 imagem para o ALVO
+      if (alvo) {
+        const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
+        alvo.imagem_gladiador_URL = imgMap.get(cpfN) || null;
+      }
     }
 
     const stripValor = (r) => {
@@ -855,12 +892,25 @@ class RankingService {
     topRows = await this._filterOutExcluidos(topRows);
     if (lim) topRows = topRows.slice(0, lim);
 
+    // 🔹 imagens para o TOP
+    if (topRows.length) {
+      const cpfsTop = topRows.map(r => r.corretor_cpf);
+      const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
+      topRows = topRows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(r.corretor_cpf) || null }));
+    }
+
     let alvo = null, alvo_in_top = false;
     if (cpf) {
       const cpfN = String(cpf).replace(/\D+/g, '');
       const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
+
+      // 🔹 imagem para o ALVO
+      if (alvo) {
+        const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
+        alvo.imagem_gladiador_URL = imgMap.get(cpfN) || null;
+      }
     }
 
     const stripValor = (r) => {
@@ -903,7 +953,13 @@ class RankingService {
     const qOpts = { where, order: ord, raw: true };
     if (Number(limit) > 0) qOpts.limit = Math.min(Number(limit), 1000);
 
-    const rows = await this.tblRes.findAll(qOpts);
+    let rows = await this.tblRes.findAll(qOpts);
+
+    // 🔹 imagem em todos os itens da LISTA
+    if (rows.length) {
+      const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
+      rows = rows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(cpfN) || null }));
+    }
 
     const stripValor = (r) => {
       if (!r) return r;
@@ -995,12 +1051,25 @@ class RankingService {
       topRows = await this._filterOutExcluidos(topRows);
       if (lim) topRows = topRows.slice(0, lim);
 
+      // 🔹 imagens para o TOP da operadora
+      if (topRows.length) {
+        const cpfsTop = topRows.map(r => r.corretor_cpf);
+        const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
+        topRows = topRows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(r.corretor_cpf) || null }));
+      }
+
       let alvoRow = null, alvo_in_top = false;
       if (cpf) {
         const cpfN = normDigits(cpf);
         const a = await this.tblRes.findOne({ where: { ...where, corretor_cpf: cpfN }, raw: true });
         if (a && !(await this._isExcluido(cpfN))) alvoRow = a;
         if (alvoRow && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
+
+        // 🔹 imagem para o ALVO
+        if (alvoRow) {
+          const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
+          alvoRow.imagem_gladiador_URL = imgMap.get(cpfN) || null;
+        }
       }
 
       resultados.push({
@@ -1058,6 +1127,12 @@ class RankingService {
     if (Number(limit) > 0) qOpts.limit = Math.min(Number(limit), 1000);
 
     let rows = await this.tblRes.findAll(qOpts);
+
+    // 🔹 imagem em todos os itens da LISTA
+    if (rows.length) {
+      const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
+      rows = rows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(cpfN) || null }));
+    }
 
     const stripValor = (r) => {
       if (!r) return r;
