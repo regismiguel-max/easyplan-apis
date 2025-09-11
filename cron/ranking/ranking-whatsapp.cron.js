@@ -241,4 +241,10 @@ const jobRankingWhatsApp = new CronJob(
     "America/Sao_Paulo"
 );
 
+try {
+    console.log("📆 Próximas execuções:", jobRankingWhatsApp.nextDates(5).map(d => d.toString()));
+} catch (e) {
+    console.warn("⚠️ Não foi possível calcular próximas datas:", e?.message);
+}
+
 module.exports = { jobRankingWhatsApp, loadRankMes, resolveVigenciaMonth };
