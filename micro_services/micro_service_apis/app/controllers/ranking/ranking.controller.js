@@ -56,7 +56,7 @@ function createRankingController() {
       let limit = toIntOrUndef(req.query.limit);
       if (limit !== undefined) {
         if (limit <= 0) return res.status(400).send({ sucesso: false, mensagem: "limit deve ser número > 0" });
-        limit = clamp(limit, 1, 100);
+        limit = clamp(limit, 1, 1000);
       }
       const execucaoId = toIntOrUndef(req.query.execucaoId);
       const cpf = req.query.cpf ? onlyDigits(req.query.cpf) : undefined;
@@ -88,7 +88,7 @@ function createRankingController() {
       let limit = toIntOrUndef(req.query.limit);
       if (limit !== undefined) {
         if (limit <= 0) return res.status(400).send({ sucesso: false, mensagem: "limit deve ser número > 0" });
-        limit = clamp(limit, 1, 100);
+        limit = clamp(limit, 1, 1000);
       }
 
       const execucaoId = toIntOrUndef(req.query.execucaoId);
@@ -132,7 +132,7 @@ function createRankingController() {
       let limit = toIntOrUndef(req.query.limit);
       if (limit !== undefined) {
         if (limit <= 0) return res.status(400).send({ sucesso: false, mensagem: "limit deve ser número > 0" });
-        limit = clamp(limit, 1, 100);
+        limit = clamp(limit, 1, 1000);
       }
 
       const operadoraRaw = req.query.operadora ? String(req.query.operadora) : 'todas';

@@ -5,6 +5,7 @@ const moment = require('moment');
 const { jobHorariosFixos, jobDezesseteTrinta } = require('./push/pushBoletos.cron.js');
 const { jobVerifyStatusPaymentSwile } = require('./swile/swileStatusPayment.cron.js');
 const { jobRanking } =require('./ranking/ranking.cron.js') 
+const { jobRankingWhatsApp } =require('./ranking/ranking-whatsapp.cron.js') 
 
 // Inicialização dos cron jobs
 jobHorariosFixos.start();
@@ -12,6 +13,8 @@ jobHorariosFixos.start();
 jobVerifyStatusPaymentSwile.start();
 
 jobRanking.start();
+
+jobRankingWhatsApp.start();
 
 console.log('⏱️ Cron server iniciado.');
 
