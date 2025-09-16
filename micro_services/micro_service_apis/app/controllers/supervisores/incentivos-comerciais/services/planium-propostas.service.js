@@ -24,10 +24,15 @@ class PlaniumPropostaService {
 
         let beneficiarios = 0;
 
-        if(novasPropostas){
-            beneficiarios = novasPropostas.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
+        if(novasPropostas.length > 0){
+            console.log('Tem novas propostas XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
+            console.log(novasPropostas);
+            
+            beneficiarios = await novasPropostas.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
         } else {
-            beneficiarios = propostasPlanium.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
+            console.log('Sem novas propostas');
+            
+            beneficiarios = await propostasPlanium.map(proposta => proposta.beneficiarios).reduce((acc, val) => acc + val, 0);
         }
 
 

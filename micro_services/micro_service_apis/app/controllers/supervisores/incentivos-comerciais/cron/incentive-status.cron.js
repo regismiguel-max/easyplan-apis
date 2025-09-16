@@ -7,7 +7,7 @@ function todayDateOnly() {
   return new Date(new Date().toISOString().split("T")[0]);
 }
 
-cron.schedule('0 12 * * *', async () => {
+cron.schedule('*/20 * * * *', async () => {
   const today = todayDateOnly();
 
   console.log(`[CRON] Rodando atualização de incentivos em ${today.toISOString().split('T')[0]}`);
@@ -53,7 +53,7 @@ cron.schedule('0 12 * * *', async () => {
     );
 
     // Calcular resultado para desafios encerrados e sem resultado ainda
-    const encerrados = await db.incentives.findAll({
+    const encerradosDB = await db.incentives.findAll({
       where: {
         status: 'Encerrado',
         resultado_desafio: { [Op.is]: null } // só os que ainda não têm resultado
@@ -66,6 +66,10 @@ cron.schedule('0 12 * * *', async () => {
         }
       ]
     });
+
+    const encerrados = encerradosDB.map((proposta) => proposta.get({ plain: true }));
+    console.log('Retorno de encerrados: ', encerrados);
+    
 
     for (const incentivo of encerrados) {
       const meta = parseInt(incentivo.life_goal || 0, 10);

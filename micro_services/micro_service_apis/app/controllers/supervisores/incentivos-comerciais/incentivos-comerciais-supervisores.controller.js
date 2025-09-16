@@ -3,7 +3,7 @@ const { raw } = require("body-parser");
 const db = require("../../../../../../models");
 const Corretora = db.corretoras;
 
-const utils = require("./utils");
+const {bringMonth, updateBeneficiaryPayments} = require("./utils");
 
 const IncentiveRepository = require("./repositories/incentivos.repository");
 const { validateIncentivePayload } = require("./validators/incentive-validators");
@@ -509,100 +509,118 @@ class IncentiveController {
     }
 
     async paymentListByPaymentDate(req, res){
-        // console.log('Veja o que chegou: ', req);
-        const paymentDate = JSON.parse(req.query.paymentDate);
-        console.log('Veja o que veio: ', paymentDate);
-        console.log('Veja o que veio: ', paymentDate.init);
-        
-
-        const incentivosDB = await db.incentives_propostas.findAll({
-            where: {
-                pagou: true,
-                financeiro_pagou: false,
-                [Op.and]: [
-                    Sequelize.where(
-                        Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
-                        { [Op.gte]: Sequelize.fn("STR_TO_DATE", paymentDate.init, "%d/%m/%Y") }
-                    ),
-                    Sequelize.where(
-                        Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
-                        { [Op.lte]: Sequelize.fn("STR_TO_DATE", paymentDate.end, "%d/%m/%Y") }
-                    )
-                ]
-            },
-            include: {model: db.incentives, as: 'incentivo'}
-        });
-
-        const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
-
-        // Campos que você deseja exportar
-        // const fields = ['contratante_nome', 'operadora', 'data_pagamento', 'data_vigencia', 'financeiro_pagou']; 
-        const fields = [
-            // { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
-            { label: 'Nome do Contratante', value: 'contratante_nome' },
-            { label: 'Mes do Desafio', value: row => `${utils(row.incentivo.end_challenge_date.split('T')[0])}` },
-            { label: 'CPF do titular', value: row => `'${row.contratante_cpf}` },
-            { label: 'Data Pagamento', value: 'data_pagamento' },
-            { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
-            { label: 'Operadora', value: 'operadora' },
-            { label: 'Nome do Recebedor', value: 'incentivo.broker_name' },
-            { label: 'CPF do Recebedor', value: row => `'${row.incentivo.broker_cpf}` },
-            { label: 'Quantidade Beneficiário', value: 'beneficiarios' },
-            { label: 'Nome Corretora', value: 'corretora_nome' },
-            { label: 'Valor por Vida', value: 'incentivo.payment_life' },
-            { label: 'Meta de vida', value: 'incentivo.life_goal' },
-        ];
-
-        const opts = {fields, delimiter: ';', quote: ''}
-        const json2csvParser = new Parser(opts);
-        const csv = json2csvParser.parse(incentivos);
-
-        // res.header('Content-Type', 'text/csv');
-        // res.attachment('pagamentos.csv');
-        // return res.send(csv);
-
-        const propostas = incentivos.reduce((acc, proposta) => {
-            const { corretora_nome, beneficiarios, incentivo, } = proposta;
-            console.log(proposta);
-            const nomeCorretora = corretora_nome + incentivo.end_challenge_date.split('T')[0];
-            
-            // inicializa a corretora se ainda não existir
-            if (!acc[nomeCorretora]) {
-                acc[nomeCorretora] = {
-                    corretora_nome,
-                    totalPropostas: 0,
-                    totalBeneficiarios: 0,
-                    valorTotal: 0,
-                    dataDesafio: '',
-                    valorVidas: 0,
-                    metaVidas: 0
-                    // propostas: [] // opcional, se quiser listar as propostas
-                };
+        try {
+            if (!req.query.paymentDate) {
+                return res.status(400).json({
+                    sucesso: false,
+                    message: 'Parâmetro paymentDate é obrigatório'
+                });
             }
 
-            // atualiza os dados
-            acc[nomeCorretora].totalPropostas += 1;
-            acc[nomeCorretora].totalBeneficiarios += beneficiarios;
-            acc[nomeCorretora].valorTotal += beneficiarios * incentivo.payment_life;
-            acc[nomeCorretora].valorVidas = incentivo.payment_life;
-            acc[nomeCorretora].metaVidas = incentivo.life_goal;
-            acc[nomeCorretora].dataDesafio = incentivo.end_challenge_date.split('T')[0];
+            // Atualizar pagamentos
+            await updateBeneficiaryPayments();
 
-            return acc;
-        }, {});
+            // Pegar datas da requisição
+            const paymentDate = JSON.parse(req.query.paymentDate);
+            console.log('Veja o que veio: ', paymentDate);
+            
+            // Buscar as propostas com pagamento dentro do range de data onde o financeiro não pagou
+            const incentivosDB = await db.incentives_propostas.findAll({
+                where: {
+                    pagou: true,
+                    financeiro_pagou: false,
+                    [Op.and]: [
+                        Sequelize.where(
+                            Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
+                            { [Op.gte]: Sequelize.fn("STR_TO_DATE", paymentDate.init, "%d/%m/%Y") }
+                        ),
+                        Sequelize.where(
+                            Sequelize.fn("STR_TO_DATE", Sequelize.col("data_pagamento"), "%d/%m/%Y"),
+                            { [Op.lte]: Sequelize.fn("STR_TO_DATE", paymentDate.end, "%d/%m/%Y") }
+                        )
+                    ]
+                },
+                include: {model: db.incentives, as: 'incentivo'}
+            });
+    
+            const incentivos = incentivosDB.map(incentivo => incentivo.get({plain: true}));
+    
+            // Campos que você deseja exportar
+            // const fields = ['contratante_nome', 'operadora', 'data_pagamento', 'data_vigencia', 'financeiro_pagou'];
 
-        // propostas.forEach(proposta => {
-        //     proposta.totalBeneficiarios * 
-        // })
-        const propostasAgrupadas = Object.values(propostas);
-        // console.log('Propostas agrupadas e em array: ', propostas);
+            // Definir colunas do CSV
+            const fields = [
+                // { label: 'Financeiro Pagou', value: 'financeiro_pagou' },
+                { label: 'Nome do Contratante', value: 'contratante_nome' },
+                { label: 'Mes do Desafio', value: row => `${bringMonth(row.incentivo.end_challenge_date.split('T')[0])}` },
+                { label: 'CPF do titular', value: row => `'${row.contratante_cpf}` },
+                { label: 'Data Pagamento', value: 'data_pagamento' },
+                { label: 'Data Vigencia', value: row => row.data_vigencia ? new Date(row.data_vigencia).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '' },
+                { label: 'Operadora', value: 'operadora' },
+                { label: 'Nome do Recebedor', value: 'incentivo.broker_name' },
+                { label: 'CPF do Recebedor', value: row => `'${row.incentivo.broker_cpf}` },
+                { label: 'Quantidade Beneficiário', value: 'beneficiarios' },
+                { label: 'Nome Corretora', value: 'corretora_nome' },
+                { label: 'Valor por Vida', value: 'incentivo.payment_life' },
+                { label: 'Meta de vida', value: 'incentivo.life_goal' },
+            ];
+    
+            const opts = {fields, delimiter: ';', quote: ''}
+            const json2csvParser = new Parser(opts);
+            const csv = json2csvParser.parse(incentivos);
+    
+            // res.header('Content-Type', 'text/csv');
+            // res.attachment('pagamentos.csv');
+            // return res.send(csv);
+            
+            // Contruir lista resumida e organizada por corretoras
+            const propostas = incentivos.reduce((acc, proposta) => {
+                const { corretora_nome, beneficiarios, incentivo, } = proposta;
+                console.log(proposta);
+                const nomeCorretora = corretora_nome + incentivo.end_challenge_date.split('T')[0];
+                
+                // inicializa a corretora se ainda não existir
+                if (!acc[nomeCorretora]) {
+                    acc[nomeCorretora] = {
+                        corretora_nome,
+                        totalPropostas: 0,
+                        totalBeneficiarios: 0,
+                        valorTotal: 0,
+                        dataDesafio: '',
+                        valorVidas: 0,
+                        metaVidas: 0
+                        // propostas: [] // opcional, se quiser listar as propostas
+                    };
+                }
+    
+                // atualiza os dados
+                acc[nomeCorretora].totalPropostas += 1;
+                acc[nomeCorretora].totalBeneficiarios += beneficiarios;
+                acc[nomeCorretora].valorTotal += beneficiarios * incentivo.payment_life;
+                acc[nomeCorretora].valorVidas = incentivo.payment_life;
+                acc[nomeCorretora].metaVidas = incentivo.life_goal;
+                acc[nomeCorretora].dataDesafio = incentivo.end_challenge_date.split('T')[0];
+    
+                return acc;
+            }, {});
+    
+            const propostasAgrupadas = Object.values(propostas);
+            
+            return res.status(200).json({
+                sucesso: true,
+                message: 'Lista encontrada com sucesso',
+                data: propostasAgrupadas,
+                csv: Buffer.from(csv).toString('base64')
+            })
+        } catch (error) {
+            console.error('Erro em paymentListByPaymentDate:', error);
+            return res.status(500).json({
+                sucesso: false,
+                message: 'Erro ao processar lista de pagamentos',
+                error: error.message
+            });
+        }
 
-        return res.status(201).json({
-            sucesso: true,
-            message: 'Lista encontrada com sucesso',
-            data: propostasAgrupadas,
-            csv: Buffer.from(csv).toString('base64')
-        })
     }
 
     async report(req, res){
