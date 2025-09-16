@@ -71,7 +71,12 @@ export class FilterService implements IFilterService {
             }
         }
         // Combinar todas as cláusulas where com AND
-        const combinedWhereClause: WhereOptions = whereClauses.length > 0 ? { [Op.and]: whereClauses } : {};
+        const combinedWhereClause: WhereOptions = whereClauses.length > 0 ? { [Op.and]: [...whereClauses, { tipo_de_beneficiario: 'Titular' }] } : {};
+        filterSteps.push({
+            key: 'tipoBeneficiario',
+            label: 'Tipo de Beneficiário',
+            where: { tipo_de_beneficiario: 'Titular' }
+        })
 
         console.log('Vamos vê a clausula final', combinedWhereClause);
         

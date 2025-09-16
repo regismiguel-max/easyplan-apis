@@ -20,6 +20,7 @@ import StatisticsWhatsCampaignModel from './statistics-whats-campaign.model';
 import CampaignMessageStatusesModel from './campaign-message-statuses.model';
 import FailedEmailModel from './failed-emails.model';
 import BirthModel from './associations/campaign-birth.models';
+import ReportEmailModel from './report-sent-email-campaign.model';
 
 export function associateModels() {
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + TEMPLATE ************************/
@@ -29,13 +30,20 @@ export function associateModels() {
   //************************ RELACIONAMENTO CAMPAIGN + FAILED EMAILS ************************/
   CampaignModel.hasMany(FailedEmailModel, {foreignKey: 'campaingId'});
   FailedEmailModel.belongsTo(CampaignModel, {foreignKey: 'campaingId'});
+  
+  //************************ RELACIONAMENTO EMAIL_CAMPAIGN + RELATÓRIOS ************************/
+  ReportEmailModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});
+  CampaignModel.hasMany(ReportEmailModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + STATISTICS ************************/
   StatisticsEmailCampaignModel.belongsTo(CampaignModel, { foreignKey: 'emailCampaignId'});
   CampaignModel.hasOne(StatisticsEmailCampaignModel, { foreignKey: 'emailCampaignId' });
+
+
   //************************ RELACIONAMENTO CAMPAIGN + WHATSAPP STATISTICS ************************/
   StatisticsWhatsCampaignModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});
   CampaignModel.hasOne(StatisticsWhatsCampaignModel, { foreignKey: 'campaignId' });
+
   //************************ RELACIONAMENTO CAMPAIGN + WHATSAPP STATUS MESSASGE ************************/
   CampaignMessageStatusesModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});
   CampaignModel.hasMany(CampaignMessageStatusesModel, { foreignKey: 'campaignId' });
@@ -54,7 +62,7 @@ export function associateModels() {
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + RECIPIENT_GROUP ************************/
   RecipientGroupModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });
-  CampaignModel.hasOne(RecipientGroupModel, { foreignKey: 'campaignId' });
+  CampaignModel.hasMany(RecipientGroupModel, { foreignKey: 'campaignId' });
 
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + VALIDITY ************************/
   ValidityModel.belongsTo(CampaignModel, { foreignKey: 'campaignId' });

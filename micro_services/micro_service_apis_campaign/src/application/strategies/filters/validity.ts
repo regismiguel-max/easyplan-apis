@@ -23,16 +23,39 @@ export class ValidityFilterStrategy implements IFilterStrategy {
         const start = validity.start.toISOString().split('T')[0];
         const end = validity.end.toISOString().split('T')[0];
 
+        console.log('Veja como estão vindo as datas XXXXXXXXXXXXXXXXXXX:');
+        console.log('Inicio - ', validity);
+
+        
+        
+        
         validityRange.push(start);
         validityRange.push(end);
         
-        return { vigencia: { [Op.between]: validityRange } };
+        const datasFormatadas = validityRange.map(data => {
+            console.log('CCCCCCCCCC: ', data);
+            
+            const [ano, mes, dia] = data.split('-');
+            return `${dia}/${mes}/${ano}`;
+        });
+        console.log('Data formatada final XXXXXXXXXXXXXX:');
+        console.log(datasFormatadas);
+        
+        
+        return { vigencia: { [Op.between]: datasFormatadas } };
     }
 
     async pureBuildWhereClause(validityFilterValues: [string, string]): Promise<WhereOptions> {
         console.log('Vamos vê o que danado é Validity: ', validityFilterValues);
         
-        return { vigencia: { [Op.between]: validityFilterValues } };
+        const datasFormatadas = validityFilterValues.map(data => {
+            const [ano, mes, dia] = data.split('-');
+            return `${dia}/${mes}/${ano}`;
+        });
+        
+        console.log('Data formatada final XXXXXXXXXXXXXX:');
+        console.log(datasFormatadas);
+        return { vigencia: { [Op.between]: datasFormatadas } };
     }
 
     getLabel(): string {

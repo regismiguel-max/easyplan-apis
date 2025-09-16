@@ -28,6 +28,7 @@ export default class WebHookSendGridUseCase {
                 const eventType = event.event;
                 const email = event.email;
                 const messageId = event.sg_message_id;
+                const ip = event.ip;
                 const timestamp = new Date(event.timestamp * 1000); // Converter timestamp Unix para Date
 
                 // Verificar se temos todas as informações necessárias
@@ -74,9 +75,12 @@ export default class WebHookSendGridUseCase {
                     continue;
                 }
     
+                console.log('xxxxxxxxxxxxxxxPPPPPPPPPPPPPPPPPPP: ', ip);
+                console.log('xxxxxxxxxxxxxxxOOOOOOOOOOOOOO: ', typeof ip);
+                
                 // NOVO EVENTO
                 // Processar o evento usando o serviço de estatísticas
-                await this.statisticsService.processEvent(campaignId, eventType, timestamp, email, reason);
+                await this.statisticsService.processEvent(campaignId, eventType, timestamp, email, reason, ip);
                 
                 // Marcar o evento como processado no Redis
                 await redisClient.set(redisKey, '1', {EX: EXPIRATION_SECONDS});

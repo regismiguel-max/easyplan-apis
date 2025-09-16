@@ -10,6 +10,7 @@ import Template from "../template.interface";
 import StatisticsEmail from "./statistics-email.interface";
 import StaticticsWhatsapp from "../whats-campaign/statistics-whatsapp.interface";
 import Birth from "../filters/birth.interface";
+import RecipientGroup from "../recipient-group.interface";
 
 export default interface ShortFullEmailCampaign {
     campaign: Campaign,
@@ -23,7 +24,8 @@ export default interface ShortFullEmailCampaign {
     validity?: Validity | null,
     ufs?: Uf[] | null,
     whatsappStatisticsModel: StaticticsWhatsapp,
-    birth?: Birth
+    birth?: Birth,
+    recipientGroup?: RecipientGroup[],
 }
 
 

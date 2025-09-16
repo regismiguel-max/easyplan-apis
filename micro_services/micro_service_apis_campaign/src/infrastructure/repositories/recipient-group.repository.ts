@@ -13,7 +13,7 @@ export default class RecipientGroupRepository {
     async getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string> {
         const recipientGroupDB = await ClienteBeneficiarioProductionModel.findAll({
             where: filters,
-            attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
+            attributes: ['operadora', 'convenio', 'subestipulante', 'plano', 'nome_do_beneficiario', 'vigencia', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo', 'tipo_de_beneficiario']
         });
         // const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
         //     where: filters,
@@ -30,9 +30,13 @@ export default class RecipientGroupRepository {
             response.push(pureObject);
         });
 
-        console.log('Grupo Destinatário - Manipulação realizada com sucesso: ', response);
+        console.log('Grupo Destinatário Geral - titulares e dependentes: ', response);
+        const res = response.filter( rc => rc.tipo_de_beneficiario !== 'Dependente');
 
-        return response;
+        console.log('Veja os titulares: ', res);
+        
+
+        return res;
     }
     async saveRecipientsGroup(recipientsGroup: Partial<RecipientGroup>[], campaignId: number): Promise<RecipientGroup[]> {
         const data: Partial<RecipientGroup>[] = recipientsGroup.map((rg) => ({
@@ -45,6 +49,10 @@ export default class RecipientGroupRepository {
             status_do_beneficiario: rg.status_do_beneficiario,
             uf: rg.uf,
             sexo: rg.sexo,
+            convenio: rg.convenio,
+            subestipulante: rg.subestipulante,
+            nome_do_beneficiario: rg.nome_do_beneficiario,
+            vigencia: rg.vigencia
         }));
 
         console.log('Dado formatado para persistir: ', data);

@@ -31,7 +31,11 @@ export class ContractStatusFilterStrategy implements IFilterStrategy {
         
         for (const id of contractStatusesId) {
             const contractStatus = await this.filtersRepository.getContractStatusById(id);
-            status.push(contractStatus.status);
+            if(contractStatus.status === 'SUSPENSO' || contractStatus.status === 'Suspenso'){
+                status.push('Suspenso');
+            } else {
+                status.push(contractStatus.status);
+            }
         }
         
         return { status_do_beneficiario: { [Op.in]: status } };

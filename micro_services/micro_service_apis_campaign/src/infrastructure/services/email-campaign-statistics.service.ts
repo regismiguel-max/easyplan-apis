@@ -6,6 +6,7 @@ import StatisticsEmailCampaignModel, {
 
 import connection_db from "../database/config/database";
 import FailedEmailModel from "../database/models/failed-emails.model";
+import ReportEmailModel from "../database/models/report-sent-email-campaign.model";
 
 export default class EmailCampaignStatisticsService {
 
@@ -95,8 +96,9 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'delivered'
      */
-    public async processDeliveredEvent(emailCampaignId: number, timestamp: Date) {
+    public async processDeliveredEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, eventType: string) {
         const transaction = await connection_db.transaction();
+
         try {
             const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
 
@@ -125,8 +127,19 @@ export default class EmailCampaignStatisticsService {
                 await statistics.update(updates, { transaction });
             }
 
+            const teste = await ReportEmailModel.create(
+                {
+                    campaignId: emailCampaignId,
+                    emailRecipient,
+                    sent_date: timestamp.toDateString(),
+                },
+                {transaction}
+            )
+            console.log(`✅ relatório criado ${teste}`);
+            
             await transaction.commit();
             console.log(`✅ Evento 'delivered' registrado para campanha ${emailCampaignId}`);
+
         } catch (error) {
             await transaction.rollback();
             console.error('❌ Erro ao processar evento delivered:', error);
@@ -137,7 +150,7 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'open'
      */
-    public async processOpenEvent(emailCampaignId: number, timestamp: Date) {
+    public async processOpenEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string) {
         const transaction = await connection_db.transaction();
         try {
             const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
@@ -175,7 +188,7 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'click'
      */
-    public async processClickEvent(emailCampaignId: number, timestamp: Date) {
+    public async processClickEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string) {
         const transaction = await connection_db.transaction();
         try {
             const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
@@ -278,6 +291,7 @@ export default class EmailCampaignStatisticsService {
         timestamp: Date,
         emailRecipient: string,
         reason: string,
+        ip: string,
         metadata?: Record<string, any>
     ) {
         switch (eventType) {
@@ -285,13 +299,13 @@ export default class EmailCampaignStatisticsService {
                 await this.processProcessedEvent(emailCampaignId, timestamp);
                 break;
             case 'delivered':
-                await this.processDeliveredEvent(emailCampaignId, timestamp);
+                await this.processDeliveredEvent(emailCampaignId, timestamp, emailRecipient, eventType);
                 break;
             case 'open':
-                await this.processOpenEvent(emailCampaignId, timestamp);
+                await this.processOpenEvent(emailCampaignId, timestamp, emailRecipient, eventType);
                 break;
             case 'click':
-                await this.processClickEvent(emailCampaignId, timestamp);
+                await this.processClickEvent(emailCampaignId, timestamp, emailRecipient, eventType);
                 break;
             case 'dropped':
                 await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, reason);

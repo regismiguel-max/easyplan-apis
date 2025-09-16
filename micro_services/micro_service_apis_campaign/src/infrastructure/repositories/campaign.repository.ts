@@ -1,3 +1,4 @@
+import { RecipientGroupToSend } from './../../domain/entities/interfaces/recipient-group.interface';
 import CampaignEntity from "../../domain/entities/Campaign";
 import CampaignTemplateModel from "../database/models/template.model";
 import { CampaignStatus } from "../../domain/enums/campaign-status.enum";
@@ -16,6 +17,7 @@ import ICampaignRepository from "../../domain/contracts/repositories/ICampaignRe
 import StatisticsWhatsCampaignModel from "../database/models/statistics-whats-campaign.model";
 import CampaignMessageStatusesModel from "../database/models/campaign-message-statuses.model";
 import BirthModel from "../database/models/associations/campaign-birth.models";
+import RecipientGroupModel from "../database/models/recipient-group.models";
 
 class CampaignRepository implements ICampaignRepository {
     async save(campaign: Campaign): Promise<Campaign>{
@@ -88,7 +90,8 @@ class CampaignRepository implements ICampaignRepository {
                     {model: ValidityModel},
                     {model: UfModel},
                     {model: StatisticsWhatsCampaignModel},
-                    {model: BirthModel}
+                    {model: BirthModel},
+                    {model: RecipientGroupModel}
                 ]
             });
     
@@ -134,10 +137,11 @@ class CampaignRepository implements ICampaignRepository {
                 validity: pureObject.ValidityModel ?? null,
                 ufs: pureObject.UfModels ?? null,
                 whatsappStatisticsModel: pureObject.StatisticsWhatsCampaignModel ?? null,
-                birth: pureObject.BirthModel ?? null
+                birth: pureObject.BirthModel ?? null,
+                recipientGroup: pureObject.RecipientGroupModels ?? null
             }
 
-            console.log('Resultado final do objeto puro: ', pureObject);
+            // console.log('Resultado final do objeto puro: ', pureObject);
             console.log('Resultado final: ', campaign);
     
             return campaign;

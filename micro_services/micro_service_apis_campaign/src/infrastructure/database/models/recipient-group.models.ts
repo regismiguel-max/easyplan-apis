@@ -50,6 +50,22 @@ const RecipientGroupModel = connection_db.define(
         type: DataTypes.STRING,
         allowNull: true,
     },
+    convenio: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    subestipulante: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    nome_do_beneficiario: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    vigencia: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
   },
   {
     tableName: "cliente_campanha_campaign_recipient_group",

@@ -37,17 +37,17 @@ export class BirthFilterStrategy implements IFilterStrategy {
 
         if (diaStr && mesStr && anoStr) {
         // Exatamente dia/mês/ano
-        conditions.push(literal(`data_de_nascimento = '${anoStr}-${mesStr}-${diaStr}'`));
+        conditions.push(literal(`data_de_nascimento = '${diaStr}/${mesStr}/${anoStr}'`));
         } else {
             // Parcial: podemos usar SUBSTRING para comparar partes da string
             if (diaStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 9, 2) = '${diaStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 1, 2) = '${diaStr}'`));
             }
             if (mesStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 6, 2) = '${mesStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 4, 2) = '${mesStr}'`));
             }
             if (anoStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 1, 4) = '${anoStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 7, 4) = '${anoStr}'`));
             }
         }
 
@@ -80,17 +80,17 @@ export class BirthFilterStrategy implements IFilterStrategy {
 
         if (diaStr && mesStr && anoStr) {
         // Exatamente dia/mês/ano
-        conditions.push(literal(`data_de_nascimento = '${anoStr}-${mesStr}-${diaStr}'`));
+        conditions.push(literal(`data_de_nascimento = '${diaStr}/${mesStr}/${anoStr}'`));
         } else {
             // Parcial: podemos usar SUBSTRING para comparar partes da string
             if (diaStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 9, 2) = '${diaStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 1, 2) = '${diaStr}'`));
             }
             if (mesStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 6, 2) = '${mesStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 4, 2) = '${mesStr}'`));
             }
             if (anoStr) {
-                conditions.push(literal(`SUBSTRING(data_de_nascimento, 1, 4) = '${anoStr}'`));
+                conditions.push(literal(`SUBSTRING(data_de_nascimento, 7, 4) = '${anoStr}'`));
             }
         }
 
