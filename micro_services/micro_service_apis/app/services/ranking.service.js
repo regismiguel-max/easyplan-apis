@@ -814,7 +814,7 @@ class RankingService {
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
-    const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
+    const lim = Number(limit) > 0 ? Math.min(Number(limit), 1000) : null;
 
     let topRows = await this.tblRes.findAll({
       where, order: ord, ...(lim ? { limit: lim * 3 } : {}), raw: true
@@ -884,7 +884,7 @@ class RankingService {
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
-    const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
+    const lim = Number(limit) > 0 ? Math.min(Number(limit), 1000) : null;
 
     let topRows = await this.tblRes.findAll({
       where, order: ord, ...(lim ? { limit: lim * 3 } : {}), raw: true
@@ -1033,7 +1033,7 @@ class RankingService {
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
-    const lim = Number(limit) > 0 ? Math.min(Number(limit), 100) : null;
+    const lim = Number(limit) > 0 ? Math.min(Number(limit), 1000) : null;
     const stripValor = (r) => {
       if (!r) return r;
       if (String(incluirValor) === 'true') return r;
