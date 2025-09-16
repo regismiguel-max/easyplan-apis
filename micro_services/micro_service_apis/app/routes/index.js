@@ -85,5 +85,6 @@ require('./produtores/forgot.routes')(app);
 require('./produtores/vendas.routes')(app);
 
 require('./ranking/ranking.routes')(app);
+require('./ranking/rankingCadastro.routes.js')(app);
 
 module.exports = app;
