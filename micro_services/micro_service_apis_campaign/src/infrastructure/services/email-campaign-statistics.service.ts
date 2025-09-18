@@ -7,6 +7,7 @@ import StatisticsEmailCampaignModel, {
 import connection_db from "../database/config/database";
 import FailedEmailModel from "../database/models/failed-emails.model";
 import ReportEmailModel from "../database/models/report-sent-email-campaign.model";
+import RecipientGroupModel from "../database/models/recipient-group.models";
 
 export default class EmailCampaignStatisticsService {
 
@@ -96,7 +97,7 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'delivered'
      */
-    public async processDeliveredEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, eventType: string) {
+    public async processDeliveredEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, eventType: string, ip: string) {
         const transaction = await connection_db.transaction();
 
         try {
@@ -127,15 +128,29 @@ export default class EmailCampaignStatisticsService {
                 await statistics.update(updates, { transaction });
             }
 
-            const teste = await ReportEmailModel.create(
-                {
-                    campaignId: emailCampaignId,
-                    emailRecipient,
+            const [affectedRows] = await RecipientGroupModel.update(
+                {   
                     sent_date: timestamp.toDateString(),
+                    sent_ip: ip ?? null
                 },
-                {transaction}
+                {
+                    where: {
+                        campaignId: emailCampaignId,
+                        email_principal: emailRecipient
+                    },
+                    transaction
+                }
             )
-            console.log(`✅ relatório criado ${teste}`);
+
+            // const teste = await ReportEmailModel.create(
+            //     {
+            //         campaignId: emailCampaignId,
+            //         emailRecipient,
+            //         sent_date: timestamp.toDateString(),
+            //     },
+            //     {transaction}
+            // )
+            console.log(`✅ relatório atualizado ${affectedRows}`);
             
             await transaction.commit();
             console.log(`✅ Evento 'delivered' registrado para campanha ${emailCampaignId}`);
@@ -150,7 +165,7 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'open'
      */
-    public async processOpenEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string) {
+    public async processOpenEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string, ip: string) {
         const transaction = await connection_db.transaction();
         try {
             const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
@@ -176,6 +191,34 @@ export default class EmailCampaignStatisticsService {
                 await statistics.update(updates, { transaction });
             }
 
+            const [affectedRows] = await RecipientGroupModel.update(
+                {   
+                    open_date: timestamp.toDateString(),
+                    open_ip: ip ?? null
+                },
+                {
+                    where: {
+                        campaignId: emailCampaignId,
+                        email_principal: emailRecipient
+                    },
+                    transaction
+                }
+            )
+
+            // const [affectedRows] = await ReportEmailModel.update(
+            //     {   
+            //         open_date: timestamp.toDateString(),
+            //     },
+            //     {
+            //         where: {
+            //             campaignId: emailCampaignId,
+            //             emailRecipient
+            //         },
+            //         transaction
+            //     }
+            // )
+            console.log(`✅ relatório atualizado ${affectedRows}`);
+
             await transaction.commit();
             console.log(`✅ Evento 'open' registrado para campanha ${emailCampaignId}`);
         } catch (error) {
@@ -188,13 +231,41 @@ export default class EmailCampaignStatisticsService {
     /**
      * Processa evento 'click'
      */
-    public async processClickEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string) {
+    public async processClickEvent(emailCampaignId: number, timestamp: Date, emailRecipient: string, event: string, ip: string) {
         const transaction = await connection_db.transaction();
         try {
             const statistics = await this.getOrCreateStatistics(emailCampaignId, transaction);
 
             await statistics.increment('click', { by: 1, transaction });
             await statistics.reload({ transaction });
+
+            const [affectedRows] = await RecipientGroupModel.update(
+                {   
+                    click_date: timestamp.toDateString(),
+                    click_ip: ip ?? null
+                },
+                {
+                    where: {
+                        campaignId: emailCampaignId,
+                        email_principal: emailRecipient
+                    },
+                    transaction
+                }
+            )
+
+            // const [affectedRows] = await ReportEmailModel.update(
+            //     {   
+            //         click_date: timestamp.toDateString(),
+            //     },
+            //     {
+            //         where: {
+            //             campaignId: emailCampaignId,
+            //             emailRecipient
+            //         },
+            //         transaction
+            //     }
+            // )
+            console.log(`✅ relatório atualizado ${affectedRows}`);
 
             await transaction.commit();
             console.log(`✅ Evento 'open' registrado para campanha ${emailCampaignId}`);
@@ -299,13 +370,13 @@ export default class EmailCampaignStatisticsService {
                 await this.processProcessedEvent(emailCampaignId, timestamp);
                 break;
             case 'delivered':
-                await this.processDeliveredEvent(emailCampaignId, timestamp, emailRecipient, eventType);
+                await this.processDeliveredEvent(emailCampaignId, timestamp, emailRecipient, eventType, ip);
                 break;
             case 'open':
-                await this.processOpenEvent(emailCampaignId, timestamp, emailRecipient, eventType);
+                await this.processOpenEvent(emailCampaignId, timestamp, emailRecipient, eventType, ip);
                 break;
             case 'click':
-                await this.processClickEvent(emailCampaignId, timestamp, emailRecipient, eventType);
+                await this.processClickEvent(emailCampaignId, timestamp, emailRecipient, eventType, ip);
                 break;
             case 'dropped':
                 await this.processDroppedEvent(emailCampaignId, timestamp, emailRecipient, eventType, reason);

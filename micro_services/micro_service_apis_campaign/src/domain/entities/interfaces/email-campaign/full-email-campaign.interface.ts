@@ -11,6 +11,8 @@ import StatisticsEmail from "./statistics-email.interface";
 import StaticticsWhatsapp from "../whats-campaign/statistics-whatsapp.interface";
 import Birth from "../filters/birth.interface";
 import RecipientGroup from "../recipient-group.interface";
+import ReportEmail from "../report-email.interface";
+import FailedEmailPayload from "../failed-email-payload.interface";
 
 export default interface ShortFullEmailCampaign {
     campaign: Campaign,
@@ -26,6 +28,8 @@ export default interface ShortFullEmailCampaign {
     whatsappStatisticsModel: StaticticsWhatsapp,
     birth?: Birth,
     recipientGroup?: RecipientGroup[],
+    reportEmail?: ReportEmail[],
+    failedEmail?: FailedEmailPayload[],
 }
 
 

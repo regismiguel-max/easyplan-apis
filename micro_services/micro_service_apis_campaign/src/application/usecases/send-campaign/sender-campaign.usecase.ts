@@ -114,8 +114,8 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
           if(process.env.NODE_ENV === 'development') {
             clientEmailMock = [
               'devbueno3@gmail.com',
-              'buedro7@gmail.com',
-              'teste@gmuil.moc'
+              // 'buedro7@gmail.com',
+              // 'teste@gmuil.moc'
             ]
 
             chunks = await this.splitIntoChunks(clientEmailMock, chunkSize);
@@ -213,15 +213,15 @@ export default class SendCampaignUseCase implements ISendCampaignUseCase {
         }
 
         //--------------------------------------------------------------- 11° Passo criar estatísticas da Campanha e atualizar o status da campanha em questão ------------------------------------------------------
-        if(baseData.typeCampaign === 'email') {
-          if(process.env.NODE_ENV === 'development'){
-            await this.statisticsRepository.create(clientEmailMock.length, campaignId);
-          }else {
-            await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId);
-          }
-        } else if(baseData.typeCampaign === 'whatsapp') {
-          await this.whatsStatisticsRepository.create(clientNumbers.length, campaignId)
-        }
+        // if(baseData.typeCampaign === 'email') {
+        //   if(process.env.NODE_ENV === 'development'){
+        //     await this.statisticsRepository.create(clientEmailMock.length, campaignId);
+        //   }else {
+        //     await this.statisticsRepository.create(recipientsGroupEmails.length, campaignId);
+        //   }
+        // } else if(baseData.typeCampaign === 'whatsapp') {
+        //   await this.whatsStatisticsRepository.create(clientNumbers.length, campaignId)
+        // }
         await this.campaignRepository.updateStatus(campaignId, CampaignStatus.QUEUED);
 
         // Remover lock

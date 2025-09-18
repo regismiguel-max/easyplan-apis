@@ -18,6 +18,8 @@ import StatisticsWhatsCampaignModel from "../database/models/statistics-whats-ca
 import CampaignMessageStatusesModel from "../database/models/campaign-message-statuses.model";
 import BirthModel from "../database/models/associations/campaign-birth.models";
 import RecipientGroupModel from "../database/models/recipient-group.models";
+import ReportEmailModel from '../database/models/report-sent-email-campaign.model';
+import FailedEmailModel from '../database/models/failed-emails.model';
 
 class CampaignRepository implements ICampaignRepository {
     async save(campaign: Campaign): Promise<Campaign>{
@@ -91,7 +93,9 @@ class CampaignRepository implements ICampaignRepository {
                     {model: UfModel},
                     {model: StatisticsWhatsCampaignModel},
                     {model: BirthModel},
-                    {model: RecipientGroupModel}
+                    {model: RecipientGroupModel},
+                    {model: ReportEmailModel},
+                    {model: FailedEmailModel}
                 ]
             });
     
@@ -138,7 +142,9 @@ class CampaignRepository implements ICampaignRepository {
                 ufs: pureObject.UfModels ?? null,
                 whatsappStatisticsModel: pureObject.StatisticsWhatsCampaignModel ?? null,
                 birth: pureObject.BirthModel ?? null,
-                recipientGroup: pureObject.RecipientGroupModels ?? null
+                recipientGroup: pureObject.RecipientGroupModels ?? null,
+                reportEmail: pureObject.ReportEmailModels ?? null,
+                failedEmail: pureObject.FailedEmailModels ?? null,
             }
 
             // console.log('Resultado final do objeto puro: ', pureObject);

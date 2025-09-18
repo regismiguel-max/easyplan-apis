@@ -11,14 +11,14 @@ import ClienteBeneficiarioProductionModel from "../database/models/client-produc
 export default class RecipientGroupRepository {
     //************************** RECIPIENT GROUP REPOSITORY ***************************/
     async getRecipientsByFilters(filters: WhereOptions): Promise<Partial<RecipientGroup>[] | string> {
-        const recipientGroupDB = await ClienteBeneficiarioProductionModel.findAll({
+        // const recipientGroupDB = await ClienteBeneficiarioProductionModel.findAll({
+        //     where: filters,
+        //     attributes: ['operadora', 'convenio', 'subestipulante', 'plano', 'nome_do_beneficiario', 'vigencia', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo', 'tipo_de_beneficiario']
+        // });
+        const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
             where: filters,
             attributes: ['operadora', 'convenio', 'subestipulante', 'plano', 'nome_do_beneficiario', 'vigencia', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo', 'tipo_de_beneficiario']
         });
-        // const recipientGroupDB = await ClienteBeneficiarioTesteModel.findAll({
-        //     where: filters,
-        //     attributes: ['operadora', 'plano', 'status_do_beneficiario', 'uf', 'ddd_celular', 'celular', 'email_principal', 'sexo']
-        // });
 
         if(recipientGroupDB.length <= 0) return 'Não existe cliente(s) que atendam a esse conjunto de filtros';
         

@@ -28,8 +28,8 @@ export function associateModels() {
   CampaignModel.belongsTo(CampaignTemplateModel, { foreignKey: 'templateId' });
 
   //************************ RELACIONAMENTO CAMPAIGN + FAILED EMAILS ************************/
-  CampaignModel.hasMany(FailedEmailModel, {foreignKey: 'campaingId'});
-  FailedEmailModel.belongsTo(CampaignModel, {foreignKey: 'campaingId'});
+  CampaignModel.hasMany(FailedEmailModel, {foreignKey: 'campaignId'});
+  FailedEmailModel.belongsTo(CampaignModel, {foreignKey: 'campaignId'});
   
   //************************ RELACIONAMENTO EMAIL_CAMPAIGN + RELATÓRIOS ************************/
   ReportEmailModel.belongsTo(CampaignModel, { foreignKey: 'campaignId'});

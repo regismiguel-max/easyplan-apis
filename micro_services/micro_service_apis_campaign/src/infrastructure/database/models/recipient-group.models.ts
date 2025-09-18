@@ -66,6 +66,30 @@ const RecipientGroupModel = connection_db.define(
         type: DataTypes.STRING,
         allowNull: true,
     },
+    sent_date: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    open_date: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    click_date: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    sent_ip: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    open_ip: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    click_ip: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
   },
   {
     tableName: "cliente_campanha_campaign_recipient_group",
