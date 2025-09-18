@@ -1,13 +1,13 @@
 const cron = require("node-cron");
 const db = require("../../../../../../../models");
 
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 
 function todayDateOnly() {
   return new Date(new Date().toISOString().split("T")[0]);
 }
 
-cron.schedule('*/20 * * * *', async () => {
+cron.schedule('* 12 * * *', async () => {
   const today = todayDateOnly();
 
   console.log(`[CRON] Rodando atualização de incentivos em ${today.toISOString().split('T')[0]}`);
@@ -62,7 +62,7 @@ cron.schedule('*/20 * * * *', async () => {
         {
           model: db.incentives_results,
           as: 'result', // alias do relacionamento
-          attributes: ['total_sales']
+          attributes: ['total_lifes']
         }
       ]
     });
@@ -80,7 +80,12 @@ cron.schedule('*/20 * * * *', async () => {
         resultado = 'Atingiu';
       }
 
-      await incentivo.update({ resultado_desafio: resultado });
+      const [affectedRows] = await db.incentives.update(
+        { resultado_desafio: resultado },
+        {
+          where: {id: incentivo.id}
+        }
+      );
       console.log(`[CRON] Resultado do desafio ${incentivo.id} atualizado para: ${resultado}`);
     }
 

@@ -165,11 +165,13 @@ class PlaniumPropostaService {
         });
 
         if (existingResult) {
-            if (novasPropostas) {
+            // novasPropostas.lenght > 0
+            if (novasPropostas.lenght > 0) {
                 let total_sales = Number(existingResult.dataValues.total_sales) || 0;
                 total_sales += novasPropostas.length;
-     
+                
                 let total_lifes = Number(existingResult.dataValues.total_lifes) || 0;
+                
                 total_lifes += beneficiarios;
                  
                 await db.incentives_results.update({ total_sales, total_lifes }, { where: { incentive_id: incentiveId } });
