@@ -90,6 +90,22 @@ const RecipientGroupModel = connection_db.define(
         type: DataTypes.STRING,
         allowNull: true,
     },
+    failed_event: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    failed_reason: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    failed_date: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    failed_ip: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
   },
   {
     tableName: "cliente_campanha_campaign_recipient_group",
