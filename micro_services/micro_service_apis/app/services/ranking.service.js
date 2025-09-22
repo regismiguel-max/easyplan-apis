@@ -378,7 +378,7 @@ class RankingService {
     const c = normDigits(cpf);
     if (!c) return null;
     try {
-      const resp = await axiosCfg.https.get("/contrato/procurarPorCpfTitular", {
+      const resp = await axiosCfg.https_digital.get("/contrato/procurarPorCpfTitular", {
         params: { cpf: c },
         validateStatus: s => (s >= 200 && s < 300) || s === 404 || s === 400,
       });
