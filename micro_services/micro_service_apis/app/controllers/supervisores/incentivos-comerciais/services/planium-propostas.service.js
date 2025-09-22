@@ -73,7 +73,7 @@ class PlaniumPropostaService {
                 cnpj_operadora: "27252086000104",
                 data_inicio: dia,
                 data_fim: dia,
-                corretora_cnpj: planiumPayload.cnpj,
+                corretora_cnpj: [planiumPayload.cnpj],
             };
 
             const response = await api.post("proposta/consulta/v1", bodyRequest);
