@@ -62,6 +62,17 @@ const resolvePago = (st) => {
   }
   return false;
 };
+
+const DEBUG_CONTRATO = String(process.env.RANKING_DEBUG_CONTRATO || '') === '1';
+const DEBUG_CPFS_FILTER = (process.env.RANKING_DEBUG_CONTRATO_CPFS || '')
+  .split(',')
+  .map(s => s.replace(/\D+/g, ''))
+  .filter(Boolean);
+const debugMatchCpf = (cpf) => {
+  if (!DEBUG_CONTRATO) return false;
+  if (!DEBUG_CPFS_FILTER.length) return true;
+  return DEBUG_CPFS_FILTER.includes(String(cpf).replace(/\D+/g, ''));
+};
 // -----------------------------
 
 class RankingService {
@@ -156,47 +167,60 @@ class RankingService {
     return this._operSet;
   }
 
-  // -------- contrato pago (com cache persistente) --------
+  // -------- contrato pago (com cache SOMENTE para pagamentos true) --------
   async _getContratoPagoComCache(cod) {
     const key = String(cod || '').trim();
     if (!key) return false;
-    if (this._pagoCache.has(key)) return this._pagoCache.get(key);
 
-    // tenta cache no banco
+    // cache em memória: só guardamos true
+    if (this._pagoCache.has(key)) return this._pagoCache.get(key) === true;
+
+    // tenta cache no banco: se existir e for true -> retorna; se false -> IGNORA e reconsulta API
     if (this.tblCache) {
       try {
         const row = await this.tblCache.findOne({ where: { codigo_contrato: key }, raw: true });
-        if (row) {
-          const val = !!(row.status_pago ?? row.pago ?? row.conf_pagamento);
-          this._pagoCache.set(key, val);
-          return val;
+        const cachedTrue = !!(row?.status_pago ?? row?.pago ?? row?.conf_pagamento);
+        if (cachedTrue) {
+          this._pagoCache.set(key, true);
+          return true;
         }
-      } catch { /* ignore */ }
+        // se estava false no banco, ignora e segue pra API
+      } catch { /* ignore e segue pra API */ }
     }
 
-    // consulta API externa (apenas se não houver cache)
+    // consulta API sempre que não houver true em cache
     let pago = false;
+    let st; // para debug
     try {
-      const st = await this.ds.consultarStatusFaturaPorContrato(key);
+      st = await this.ds.consultarStatusFaturaPorContrato(key);
       pago = resolvePago(st);
-      // grava no cache
-      if (this.tblCache) {
-        try {
-          await this.tblCache.upsert({
-            codigo_contrato: key,
-            status_pago: pago,
-            payload_json: null,
-            updated_at: new Date(),
-            created_at: new Date(),
-          });
-        } catch { /* ignore */ }
+
+      // cacheia somente "true"
+      if (pago) {
+        this._pagoCache.set(key, true);
+        if (this.tblCache) {
+          try {
+            await this.tblCache.upsert({
+              codigo_contrato: key,
+              status_pago: true,
+              payload_json: null,
+              updated_at: new Date(),
+              created_at: new Date(),
+            });
+          } catch { /* ignore */ }
+        }
       }
-    } catch {
-      // mantém falso; não faz loop infinito
+    } catch { /* mantém false */ }
+
+    // DEBUG opcional
+    if (DEBUG_CONTRATO && debugMatchCpf('ANY')) {
+      try {
+        const preview = typeof st === 'object' ? JSON.stringify(st).slice(0, 2000) : String(st);
+        console.log('[RANK][DEBUG] payload status fatura (amostra) para contrato', key, preview);
+      } catch { }
     }
 
-    this._pagoCache.set(key, pago);
-    return pago;
+    return !!pago;
   }
 
   async _getMetaByCpf(cpfRaw, sampleRow) {
@@ -374,20 +398,46 @@ class RankingService {
   }
 
   // -------- resolve contrato por CPF (usa a MESMA base já usada no projeto) --------
-  async _resolverContratoCodigoPorCpf(cpf) {
+  async _resolverContratoCodigoPorCpf(cpf, opts = {}) {
     const c = normDigits(cpf);
+    const numeroPropostaAlvo = opts.numeroProposta ? String(opts.numeroProposta).trim() : null;
+
     if (!c) return null;
     try {
       const resp = await axiosCfg.https_digital.get("/contrato/procurarPorCpfTitular", {
         params: { cpf: c },
         validateStatus: s => (s >= 200 && s < 300) || s === 404 || s === 400,
       });
-      if (resp.status >= 200 && resp.status < 300) {
-        const data = resp.data;
-        const codigo = data?.codigo_do_contrato || data?.codigoContrato || data?.contrato || null;
-        return codigo ? String(codigo).trim() : null;
+      if (!(resp.status >= 200 && resp.status < 300)) return null;
+
+      const data = resp.data;
+      const arr = Array.isArray(data) ? data : (data ? [data] : []);
+      if (!arr.length) return null;
+
+      // 1) match por numeroProposta (DNV -> propostaID)
+      let chosen = numeroPropostaAlvo
+        ? arr.find(it => String(it?.numeroProposta || '').trim() === numeroPropostaAlvo) || null
+        : null;
+
+      // 2) senão, pegue um contrato "Ativo"
+      if (!chosen) {
+        chosen = arr.find(it => String(it?.statusContrato?.nome || '').toLowerCase() === 'ativo') || null;
       }
-      return null;
+
+      // 3) fallback: primeiro
+      if (!chosen) chosen = arr[0];
+
+      const codigo =
+        chosen?.codigo ??
+        chosen?.codigo_do_contrato ??
+        chosen?.codigoContrato ??
+        chosen?.contrato ??
+        null;
+
+      const statusNome = String(chosen?.statusContrato?.nome || '').trim() || null;
+
+      // retornamos objeto p/ permitir usar status na lógica de "ativo"
+      return codigo ? { codigo: String(codigo).trim(), statusNome } : null;
     } catch {
       return null;
     }
@@ -492,28 +542,79 @@ class RankingService {
     const cpfSet = new Set([...byCpfDia.keys()]);
     const cpfToConfirm = new Map();
 
+    // coletores de diagnóstico
+    const diagContrato = {
+      total_cpfs: cpfSet.size,
+      sem_titularCpf: 0,
+      sem_contrato: 0,
+      pagos_true: 0,
+      pagos_false: 0
+    };
+
     await Promise.all(Array.from(cpfSet).map(cpf => limiter(async () => {
-      // pegar um titularCpf de amostra desse CPF
       const sampleMap = byCpfDia.get(cpf) || new Map();
       const firstBucket = sampleMap.values().next().value;
-      const titularCpf =
-        (firstBucket?.rows || []).map(x => normDigits(x.titularCpf)).find(Boolean) || null;
 
-      let contratoCodigo = null;
-      if (titularCpf) {
-        contratoCodigo = await this._resolverContratoCodigoPorCpf(titularCpf);
+      const candidatosTitular = (firstBucket?.rows || [])
+        .map(x => normDigits(x.titularCpf))
+        .filter(Boolean);
+
+      const numeroProposta = String(firstBucket?.rows?.[0]?.propostaID || '').trim() || null;
+
+      if (debugMatchCpf(cpf)) {
+        console.log('[RANK][DEBUG] CPF_CORRETOR:', cpf, '| candidatosTitular:', candidatosTitular, '| numeroProposta:', numeroProposta || '(n/a)');
       }
 
+      // tenta todos os titulares até achar um contrato válido
+      let contratoCodigo = null;
+      let statusContratoNome = null;
+      let titularUsado = null;
+
+      for (const t of candidatosTitular) {
+        const res = await this._resolverContratoCodigoPorCpf(t, { numeroProposta });
+        if (res?.codigo) {
+          contratoCodigo = res.codigo;
+          statusContratoNome = res.statusNome || null;
+          titularUsado = t;
+          break;
+        }
+      }
+
+      if (debugMatchCpf(cpf)) {
+        console.log('[RANK][DEBUG] titularUsado:', titularUsado || '(nenhum)',
+          '=> contratoCodigo:', contratoCodigo || '(não encontrado)',
+          '| statusContrato:', statusContratoNome || '(n/a)');
+      }
+
+      // pagamento: usa cache apenas para true; false sempre reconsulta
       let pago = false;
       if (contratoCodigo) {
-        pago = await this._getContratoPagoComCache(contratoCodigo); // mantém cache persistente
+        try {
+          pago = await this._getContratoPagoComCache(contratoCodigo);
+        } catch { /* mantém false */ }
       }
+      if (pago) diagContrato.pagos_true++; else diagContrato.pagos_false++;
 
-      // Ativo: se quiser uma regra diferente, ajuste aqui.
-      const ativo = !!pago;
+      // >>> NOVO: ativo depende APENAS do status do contrato
+      const ativo = String(statusContratoNome || '').toLowerCase() === 'ativo';
 
       cpfToConfirm.set(cpf, { pago, ativo });
+
+      if (debugMatchCpf(cpf)) {
+        console.log('[RANK][DEBUG] resultado:', {
+          cpf,
+          titularCpf: titularUsado || null,
+          numeroProposta: numeroProposta || null,
+          contratoCodigo: contratoCodigo || null,
+          statusContratoNome: statusContratoNome || null,
+          pago, ativo
+        });
+      }
     })));
+
+    if (DEBUG_CONTRATO) {
+      console.log('[RANK][DEBUG][RESUMO_CONTRATO]', diagContrato);
+    }
 
     const onlyVendidas = (rows) => rows.reduce((acc, it) => acc + (it.beneficiarios || 0), 0);
 
