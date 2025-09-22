@@ -68,12 +68,21 @@ class PlaniumPropostaService {
     async _buscarPropostasPorDias(dias, planiumPayload) {
         // Requisição para a planium para cada dia, buscando as propostas existentes nesse dia
         let propostasPlanium = [];
+        // let xpto = [];
+
+        if(planiumPayload.cnpj === '13097063000150') {
+            planiumPayload.cnpj = ['13097063000150', '57225409000123'];
+        }
+
+        // console.log('Vamos vê como está o cnpj: ', planiumPayload);
+        // console.log('Vamos vê como está o cnpj XXXXX: ', typeof planiumPayload.cnpj);
+        
         for (const dia of dias) {
             const bodyRequest = {
                 cnpj_operadora: "27252086000104",
                 data_inicio: dia,
                 data_fim: dia,
-                corretora_cnpj: [planiumPayload.cnpj],
+                corretora_cnpj: planiumPayload.cnpj,
             };
 
             const response = await api.post("proposta/consulta/v1", bodyRequest);
