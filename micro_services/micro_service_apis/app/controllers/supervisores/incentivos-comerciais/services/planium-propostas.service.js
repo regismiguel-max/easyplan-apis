@@ -72,6 +72,8 @@ class PlaniumPropostaService {
 
         if(planiumPayload.cnpj === '13097063000150') {
             planiumPayload.cnpj = ['13097063000150', '57225409000123'];
+        } else {
+            planiumPayload.cnpj = [planiumPayload.cnpj];
         }
 
         // console.log('Vamos vê como está o cnpj: ', planiumPayload);
@@ -95,6 +97,7 @@ class PlaniumPropostaService {
                     return proposta.status !== 'cancelada' && proposta.status !== 'retificada';
                 }
             )
+            
             console.log('proposta dia: ', propostasDoDia);
 
             propostasPlanium.push(...propostasDoDia);
