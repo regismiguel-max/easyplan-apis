@@ -95,7 +95,7 @@ class RankingService {
 
     // caches em memória
     this._metaCache = new Map();    // cpf -> { nome, uf }
-    this._pagoCache = new Map();    // contrato -> boolean
+    this._pagoCache = new Map();    // contrato -> boolean (somente true em memória)
     this._exclSet = null;           // Set de cpfs (normalizados)
     this._superSet = null;          // Set de nomes de supervisor (exatos)
     this._operSet = null;           // Set de nomes de operadora (exatos)
@@ -336,7 +336,6 @@ class RankingService {
             diag.drop_supervisor++;
             continue;
           }
-          // quando permitido, segue com supNome = null
         } else {
           if (!whitelistSuper.has(supNome)) {
             diag.drop_supervisor++;
@@ -352,7 +351,6 @@ class RankingService {
         const st = toLower(it?.status);
         if (banStatus.has(st)) { diag.drop_status++; continue; }
 
-        // if (!(toLower(it?.contrato) === 'ad' && toLower(it?.produto) === 'saude')) { diag.drop_cont_prod++; continue; }
         if (!(toLower(it?.contrato) === 'ad')) { diag.drop_cont_prod++; continue; }
 
         // vigência: deve existir na tabela (modo estrito)
@@ -368,7 +366,7 @@ class RankingService {
         const totalValorCent = parseMoneyToCents(it?.total_valor);
         const vendedorNome = String(it?.vendedor_nome || '').trim();
 
-        // confirmação por CPF (titular -> contrato)
+        // >>> MOD: titularCpf somente metadados[0]; fallback contratante_cpf
         const titularCpf = normDigits(Array.isArray(it?.metadados?.titulares_cpf) ? it.metadados.titulares_cpf[0] : null)
           || normDigits(it?.contratante_cpf);
 
@@ -388,16 +386,14 @@ class RankingService {
       }
     })));
 
-    // se quiser logar em console:
     if (process.env.RANKING_DEBUG_DNV === '1') {
       console.log('[DNV][DIAG]', JSON.stringify(diag));
     }
 
-    // anexa o diagnóstico para o chamador usar na mensagem de erro, se necessário
     return { items, diag };
   }
 
-  // -------- resolve contrato por CPF (usa a MESMA base já usada no projeto) --------
+  // -------- resolve contrato por CPF (lista) priorizando proposta e status --------
   async _resolverContratoCodigoPorCpf(cpf, opts = {}) {
     const c = normDigits(cpf);
     const numeroPropostaAlvo = opts.numeroProposta ? String(opts.numeroProposta).trim() : null;
@@ -419,7 +415,7 @@ class RankingService {
         ? arr.find(it => String(it?.numeroProposta || '').trim() === numeroPropostaAlvo) || null
         : null;
 
-      // 2) senão, pegue um contrato "Ativo"
+      // 2) senão, contrato Ativo
       if (!chosen) {
         chosen = arr.find(it => String(it?.statusContrato?.nome || '').toLowerCase() === 'ativo') || null;
       }
@@ -436,7 +432,6 @@ class RankingService {
 
       const statusNome = String(chosen?.statusContrato?.nome || '').trim() || null;
 
-      // retornamos objeto p/ permitir usar status na lógica de "ativo"
       return codigo ? { codigo: String(codigo).trim(), statusNome } : null;
     } catch {
       return null;
@@ -458,15 +453,65 @@ class RankingService {
       throw new Error("Não há vigências ativas configuradas (tabela rk_vig_validas).");
     }
 
-    // === NOVO: coleta vendidas via DNV + filtros estritos ===
+    // Coleta vendidas (DNV)
     const { items: dnvRows, diag: dnvDiag } = await this._coletarVendidasDNV({ inicio, fim, diaParaGrupo, whitelistSuper, whitelistOper });
 
-    // Buckets por CPF (Geral)
+    // >>> MOD: confirmação por LINHA (proposta) com limiter
+    const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 200 });
+    const diagContrato = { total_rows: dnvRows.length, contratos_found: 0, pagos_true: 0, pagos_false: 0 };
+
+    await Promise.all(dnvRows.map(row => limiter(async () => {
+      const titularCpf = normDigits(row.titularCpf);
+      const numeroProposta = String(row.propostaID || '').trim() || null;
+
+      let contratoCodigo = null;
+      let statusContratoNome = null;
+
+      if (titularCpf) {
+        const res = await this._resolverContratoCodigoPorCpf(titularCpf, { numeroProposta });
+        if (res?.codigo) {
+          contratoCodigo = res.codigo;
+          statusContratoNome = res.statusNome || null;
+        }
+      }
+
+      // flags na linha
+      row._contratoCodigo = contratoCodigo || null;       // código do contrato (se achou)
+      row._ativo = String(statusContratoNome || '').toLowerCase() === 'ativo'; // ativo só pelo status do contrato
+      row._pago = false;
+      row._foundContrato = !!contratoCodigo;
+
+      if (row._foundContrato) {
+        diagContrato.contratos_found++;
+        try {
+          row._pago = await this._getContratoPagoComCache(contratoCodigo);
+        } catch { row._pago = false; }
+        if (row._pago) diagContrato.pagos_true++; else diagContrato.pagos_false++;
+      } else {
+        diagContrato.pagos_false++; // sem contrato => não pago
+      }
+
+      if (DEBUG_CONTRATO && debugMatchCpf(row.vendedorCpf)) {
+        console.log('[RANK][DEBUG] LINHA', {
+          cpfCorretor: row.vendedorCpf,
+          titularCpf,
+          numeroProposta,
+          contratoCodigo: row._contratoCodigo,
+          ativo: row._ativo,
+          pago: row._pago
+        });
+      }
+    })));
+
+    if (DEBUG_CONTRATO) {
+      console.log('[RANK][DEBUG][RESUMO_CONTRATO_LINHA]', diagContrato);
+    }
+
+    // ===== Buckets por CPF (Geral) e por Operadora =====
     const byCpfDia = new Map();       // cpf -> Map(ymd -> { rows, vidas, valor })
     const byCpfGrupo = new Map();     // cpf -> Map(grupo -> { rows, vidas, valor })
-    const byCpfValorTotal = new Map(); // cpf -> total valor cent (para confirmado quando pago)
+    const byCpfValorTotal = new Map(); // cpf -> total valor cent (todas as linhas)
 
-    // Buckets por Operadora -> CPF
     const opCpfDia = new Map();       // operadora -> Map(cpf -> Map(ymd -> { rows, vidas, valor }))
     const opCpfGrupo = new Map();     // operadora -> Map(cpf -> Map(grupo -> { rows, vidas, valor }))
     const opCpfValorTotal = new Map(); // operadora -> Map(cpf -> total valor cent)
@@ -484,7 +529,7 @@ class RankingService {
       bDia.vidas += r.beneficiarios;
       bDia.valor += r.totalValorCent;
 
-      // MES/grupo (do cadastro)
+      // MES/grupo
       let mapGrupo = byCpfGrupo.get(cpf);
       if (!mapGrupo) { mapGrupo = new Map(); byCpfGrupo.set(cpf, mapGrupo); }
       let bGrupo = mapGrupo.get(vigMes);
@@ -537,101 +582,47 @@ class RankingService {
       }
     }
 
-    // === Confirmação/Ativo por CPF (contrato + faturas) ===
-    const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 200 });
-    const cpfSet = new Set([...byCpfDia.keys()]);
-    const cpfToConfirm = new Map();
+    // >>> MOD: função auxiliar para somar métricas por linhas
+    const sumRowsMetrics = (rows, valorTotalOverride = null) => {
+      let vendidas = 0, confirmadas = 0, confirmadasAtivas = 0, ativas = 0, valorConfirmado = 0;
+      const contratosPagos = new Set();
 
-    // coletores de diagnóstico
-    const diagContrato = {
-      total_cpfs: cpfSet.size,
-      sem_titularCpf: 0,
-      sem_contrato: 0,
-      pagos_true: 0,
-      pagos_false: 0
-    };
+      for (const it of rows) {
+        const vidas = Number(it.beneficiarios) || 0;
+        vendidas += vidas;
 
-    await Promise.all(Array.from(cpfSet).map(cpf => limiter(async () => {
-      const sampleMap = byCpfDia.get(cpf) || new Map();
-      const firstBucket = sampleMap.values().next().value;
+        const pago = !!it._pago;
+        const ativo = !!it._ativo;
 
-      const candidatosTitular = (firstBucket?.rows || [])
-        .map(x => normDigits(x.titularCpf))
-        .filter(Boolean);
-
-      const numeroProposta = String(firstBucket?.rows?.[0]?.propostaID || '').trim() || null;
-
-      if (debugMatchCpf(cpf)) {
-        console.log('[RANK][DEBUG] CPF_CORRETOR:', cpf, '| candidatosTitular:', candidatosTitular, '| numeroProposta:', numeroProposta || '(n/a)');
-      }
-
-      // tenta todos os titulares até achar um contrato válido
-      let contratoCodigo = null;
-      let statusContratoNome = null;
-      let titularUsado = null;
-
-      for (const t of candidatosTitular) {
-        const res = await this._resolverContratoCodigoPorCpf(t, { numeroProposta });
-        if (res?.codigo) {
-          contratoCodigo = res.codigo;
-          statusContratoNome = res.statusNome || null;
-          titularUsado = t;
-          break;
+        if (ativo) ativas += vidas;
+        if (pago) {
+          confirmadas += vidas;
+          valorConfirmado += (Number(it.totalValorCent) || 0);
+          if (it._contratoCodigo) contratosPagos.add(String(it._contratoCodigo));
+          if (ativo) confirmadasAtivas += vidas;
         }
       }
 
-      if (debugMatchCpf(cpf)) {
-        console.log('[RANK][DEBUG] titularUsado:', titularUsado || '(nenhum)',
-          '=> contratoCodigo:', contratoCodigo || '(não encontrado)',
-          '| statusContrato:', statusContratoNome || '(n/a)');
-      }
+      const valorTotalVendido = (valorTotalOverride != null) ? valorTotalOverride
+        : rows.reduce((acc, it) => acc + (Number(it.totalValorCent) || 0), 0);
 
-      // pagamento: usa cache apenas para true; false sempre reconsulta
-      let pago = false;
-      if (contratoCodigo) {
-        try {
-          pago = await this._getContratoPagoComCache(contratoCodigo);
-        } catch { /* mantém false */ }
-      }
-      if (pago) diagContrato.pagos_true++; else diagContrato.pagos_false++;
-
-      // >>> NOVO: ativo depende APENAS do status do contrato
-      const ativo = String(statusContratoNome || '').toLowerCase() === 'ativo';
-
-      cpfToConfirm.set(cpf, { pago, ativo });
-
-      if (debugMatchCpf(cpf)) {
-        console.log('[RANK][DEBUG] resultado:', {
-          cpf,
-          titularCpf: titularUsado || null,
-          numeroProposta: numeroProposta || null,
-          contratoCodigo: contratoCodigo || null,
-          statusContratoNome: statusContratoNome || null,
-          pago, ativo
-        });
-      }
-    })));
-
-    if (DEBUG_CONTRATO) {
-      console.log('[RANK][DEBUG][RESUMO_CONTRATO]', diagContrato);
-    }
-
-    const onlyVendidas = (rows) => rows.reduce((acc, it) => acc + (it.beneficiarios || 0), 0);
+      return {
+        vendidas,
+        confirmadas,
+        confirmadasAtivas,
+        ativas,
+        contratosConfirmados: contratosPagos.size,
+        valorConfirmado,
+        valorTotalVendido
+      };
+    };
 
     const linhas = [];
 
     const montarLinhaGeral = async (cpf, nome, janela, vigencia, rows) => {
-      const vendidas = onlyVendidas(rows);
-      const metaConf = cpfToConfirm.get(cpf) || { pago: false, ativo: false };
-
-      const confirmadas = metaConf.pago ? vendidas : 0;
-      const confirmadasAtivas = (metaConf.pago && metaConf.ativo) ? vendidas : 0;
-      const ativas = metaConf.ativo ? vendidas : 0;
-
-      const valorConfirmado = metaConf.pago ? (byCpfValorTotal.get(cpf) || 0) : 0;
-      const valorTotalVendido = byCpfValorTotal.get(cpf) || 0;
-
       const meta = await this._getMetaByCpf(cpf, rows[0]);
+      // >>> MOD: métricas usando flags por linha
+      const m = sumRowsMetrics(rows, byCpfValorTotal.get(cpf) || 0);
 
       return {
         operadora: OPERADORA_GERAL, // GERAL
@@ -642,29 +633,22 @@ class RankingService {
         cpf,
         nome: nome || meta.nome || null,
         ufMeta: meta.uf || null,
-        vendidas,
-        confirmadas,
-        confirmadasAtivas,
-        ativas,
+        vendidas: m.vendidas,
+        confirmadas: m.confirmadas,
+        confirmadasAtivas: m.confirmadasAtivas,
+        ativas: m.ativas,
         contratosVendidos: 0,
-        contratosConfirmados: metaConf.pago ? 1 : 0,
-        valorConfirmado,
-        valorTotalVendido
+        contratosConfirmados: m.contratosConfirmados,
+        valorConfirmado: m.valorConfirmado,
+        valorTotalVendido: m.valorTotalVendido
       };
     };
 
     const montarLinhaOperadora = async (operadora, cpf, nome, janela, vigencia, rows) => {
-      const vendidas = onlyVendidas(rows);
-      const metaConf = cpfToConfirm.get(cpf) || { pago: false, ativo: false };
-
-      const confirmadas = metaConf.pago ? vendidas : 0;
-      const confirmadasAtivas = (metaConf.pago && metaConf.ativo) ? vendidas : 0;
-      const ativas = metaConf.ativo ? vendidas : 0;
-
-      const valorConfirmado = metaConf.pago ? (opCpfValorTotal.get(operadora)?.get(cpf) || 0) : 0;
-      const valorTotalVendido = opCpfValorTotal.get(operadora)?.get(cpf) || 0;
-
       const meta = await this._getMetaByCpf(cpf, rows[0]);
+      // >>> MOD: métricas usando flags por linha
+      const totalValOpCpf = opCpfValorTotal.get(operadora)?.get(cpf) || 0;
+      const m = sumRowsMetrics(rows, totalValOpCpf);
 
       return {
         operadora, // POR OPERADORA
@@ -675,14 +659,14 @@ class RankingService {
         cpf,
         nome: nome || meta.nome || null,
         ufMeta: meta.uf || null,
-        vendidas,
-        confirmadas,
-        confirmadasAtivas,
-        ativas,
+        vendidas: m.vendidas,
+        confirmadas: m.confirmadas,
+        confirmadasAtivas: m.confirmadasAtivas,
+        ativas: m.ativas,
         contratosVendidos: 0,
-        contratosConfirmados: metaConf.pago ? 1 : 0,
-        valorConfirmado,
-        valorTotalVendido
+        contratosConfirmados: m.contratosConfirmados,
+        valorConfirmado: m.valorConfirmado,
+        valorTotalVendido: m.valorTotalVendido
       };
     };
 
@@ -812,7 +796,7 @@ class RankingService {
         ranked.push({
           escopo: ln.escopo || 'NACIONAL',
           uf: ln.uf || null,
-          operadora: ln.operadora || null, // campo extra (se seu model suportar)
+          operadora: ln.operadora || null,
           janela: ln.janela,
           vigencia: ln.vigencia,
           corretor_cpf: ln.cpf,
@@ -838,7 +822,6 @@ class RankingService {
       data_fim_campanha: new Date(fim),
     });
 
-    // helper local para evitar NULL nas chaves
     const normalizeScopeFields = (ln) => {
       const isUF = (ln.escopo || 'NACIONAL').toUpperCase() === 'UF';
       const uf_db = isUF ? String(ln.uf || 'NA').toUpperCase() : 'NA';
@@ -852,8 +835,8 @@ class RankingService {
         return {
           execucao_id: exec.id,
           escopo: ln.escopo || 'NACIONAL',
-          uf: uf_db,                         // << nunca NULL
-          operadora: operadora_db,           // << 'GERAL' quando for “sem operadora”
+          uf: uf_db,
+          operadora: operadora_db,
           janela: ln.janela,
           vigencia: ln.vigencia,
           corretor_cpf: ln.corretor_cpf,
@@ -904,14 +887,14 @@ class RankingService {
     if (!id) return { execucaoId: null, top: [], alvo: null, alvo_in_top: false };
 
     const ESC = String(escopo || 'NACIONAL').toUpperCase();
-    const where = { execucao_id: id, janela: 'TOTAL', vigencia: null, operadora: OPERADORA_GERAL }; // << geral usa 'GERAL'
+    const where = { execucao_id: id, janela: 'TOTAL', vigencia: null, operadora: OPERADORA_GERAL };
     if (ESC === 'UF') {
       if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
       where.escopo = 'UF';
-      where.uf = String(uf).toUpperCase();      // uf obrigatório
+      where.uf = String(uf).toUpperCase();
     } else {
       where.escopo = 'NACIONAL';
-      where.uf = 'NA';                           // << nunca null
+      where.uf = 'NA';
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
@@ -923,7 +906,7 @@ class RankingService {
     topRows = await this._filterOutExcluidos(topRows);
     if (lim) topRows = topRows.slice(0, lim);
 
-    // 🔹 imagens para o TOP
+    // imagens para o TOP
     if (topRows.length) {
       const cpfsTop = topRows.map(r => r.corretor_cpf);
       const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
@@ -937,7 +920,6 @@ class RankingService {
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
 
-      // 🔹 imagem para o ALVO
       if (alvo) {
         const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
         alvo.imagem_gladiador_URL = imgMap.get(cpfN) || null;
@@ -974,14 +956,14 @@ class RankingService {
     if (J === 'MES' && !/^\d{4}-\d{2}$/.test(vig || '')) throw new Error("Para janela=MES, use ?vigencia=YYYY-MM");
 
     const ESC = String(escopo || 'NACIONAL').toUpperCase();
-    const where = { execucao_id: id, janela: J, vigencia: vig, operadora: OPERADORA_GERAL }; // << geral usa 'GERAL'
+    const where = { execucao_id: id, janela: J, vigencia: vig, operadora: OPERADORA_GERAL };
     if (ESC === 'UF') {
       if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
       where.escopo = 'UF';
       where.uf = String(uf).toUpperCase();
     } else {
       where.escopo = 'NACIONAL';
-      where.uf = 'NA'; // << nunca null
+      where.uf = 'NA';
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
@@ -993,7 +975,6 @@ class RankingService {
     topRows = await this._filterOutExcluidos(topRows);
     if (lim) topRows = topRows.slice(0, lim);
 
-    // 🔹 imagens para o TOP
     if (topRows.length) {
       const cpfsTop = topRows.map(r => r.corretor_cpf);
       const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
@@ -1007,7 +988,6 @@ class RankingService {
       if (a && !(await this._isExcluido(cpfN))) alvo = a;
       if (alvo && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
 
-      // 🔹 imagem para o ALVO
       if (alvo) {
         const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
         alvo.imagem_gladiador_URL = imgMap.get(cpfN) || null;
@@ -1056,7 +1036,6 @@ class RankingService {
 
     let rows = await this.tblRes.findAll(qOpts);
 
-    // 🔹 imagem em todos os itens da LISTA
     if (rows.length) {
       const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
       rows = rows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(cpfN) || null }));
@@ -1079,7 +1058,6 @@ class RankingService {
 
     await this._loadExcluidosSet();
 
-    // Normaliza janela/vigência
     const J = String(janela || 'TOTAL').toUpperCase();
     if (!['TOTAL', 'DIA', 'MES'].includes(J)) throw new Error("janela deve ser TOTAL, DIA ou MES");
 
@@ -1091,10 +1069,9 @@ class RankingService {
       V = vigencia ? String(vigencia).slice(0, 7) : null;
       if (V && !/^\d{4}-\d{2}$/.test(V)) throw new Error("Para janela=MES, use vigencia=YYYY-MM");
     } else {
-      V = null; // TOTAL = vigencia NULL
+      V = null;
     }
 
-    // Escopo/UF
     const whereBase = { execucao_id: id, janela: J };
     if (J === 'TOTAL') whereBase.vigencia = null;
     if (J !== 'TOTAL' && V) whereBase.vigencia = V;
@@ -1108,7 +1085,6 @@ class RankingService {
       whereBase.uf = UF_NACIONAL;
     }
 
-    // Lista de operadoras realmente existentes no recorte pedido (para diagnosticar)
     const opsDisponiveisRows = await this.tblRes.findAll({
       attributes: ['operadora'],
       where: whereBase,
@@ -1119,18 +1095,15 @@ class RankingService {
       .map(r => (r.operadora ?? '').toString().trim())
       .filter(Boolean);
 
-    // Normaliza parâmetro recebido (trim/exato)
     const opParam = (operadora ?? '').toString().trim();
 
-    // Operadoras alvo
     let alvoOperadoras = [];
     if (!opParam || opParam.toLowerCase() === 'todas' || opParam.toLowerCase() === 'geral') {
-      alvoOperadoras = opsDisponiveis.slice(); // todas as que existem nesse recorte
+      alvoOperadoras = opsDisponiveis.slice();
     } else {
-      // tenta casar exatamente; se não achar, tenta um match por TRIM/case-insensitive
       const matchExato = opsDisponiveis.find(o => o === opParam);
       const matchICase = matchExato ? matchExato : opsDisponiveis.find(o => o.toLowerCase() === opParam.toLowerCase());
-      alvoOperadoras = matchICase ? [matchICase] : [opParam]; // ainda tenta com o param
+      alvoOperadoras = matchICase ? [matchICase] : [opParam];
     }
 
     const ord = [['rank_confirmadas', 'ASC'], ['corretor_cpf', 'ASC']];
@@ -1152,7 +1125,6 @@ class RankingService {
       topRows = await this._filterOutExcluidos(topRows);
       if (lim) topRows = topRows.slice(0, lim);
 
-      // 🔹 imagens para o TOP da operadora
       if (topRows.length) {
         const cpfsTop = topRows.map(r => r.corretor_cpf);
         const imgMap = await this._getImgUrlMapByCpfs(cpfsTop);
@@ -1166,7 +1138,6 @@ class RankingService {
         if (a && !(await this._isExcluido(cpfN))) alvoRow = a;
         if (alvoRow && topRows.length) alvo_in_top = topRows.some(r => r.corretor_cpf === cpfN);
 
-        // 🔹 imagem para o ALVO
         if (alvoRow) {
           const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
           alvoRow.imagem_gladiador_URL = imgMap.get(cpfN) || null;
@@ -1182,10 +1153,9 @@ class RankingService {
         top: topRows.map(stripValor),
         alvo: stripValor(alvoRow),
         alvo_in_top,
-        // campo auxiliar de diagnóstico (só quando vazio)
         _diag: topRows.length ? undefined : {
-          opsDisponiveis, // operadoras realmente existentes nesse recorte
-          whereBase,      // para conferir janela/vigencia/escopo
+          opsDisponiveis,
+          whereBase,
         }
       });
     }
@@ -1208,11 +1178,9 @@ class RankingService {
       return { execucaoId: id, janela: J, cpf: cpfN, operadora: null, lista: [] };
     }
 
-    // Normaliza operadora: 'GERAL' quando vazio/“geral”
     let op = (operadora ?? '').toString().trim();
     if (!op || op.toLowerCase() === 'geral' || op.toLowerCase() === 'todas') op = 'GERAL';
 
-    // Escopo/UF
     const ESC = String(escopo || 'NACIONAL').toUpperCase();
     const where = { execucao_id: id, janela: J, escopo: ESC, operadora: op, corretor_cpf: cpfN };
 
@@ -1220,7 +1188,7 @@ class RankingService {
       if (!uf) throw new Error("Informe 'uf' quando escopo=UF");
       where.uf = String(uf).toUpperCase();
     } else {
-      where.uf = 'NA'; // padronização p/ nacional
+      where.uf = 'NA';
     }
 
     const ord = [['vigencia', 'ASC']];
@@ -1229,7 +1197,6 @@ class RankingService {
 
     let rows = await this.tblRes.findAll(qOpts);
 
-    // 🔹 imagem em todos os itens da LISTA
     if (rows.length) {
       const imgMap = await this._getImgUrlMapByCpfs([cpfN]);
       rows = rows.map(r => ({ ...r, imagem_gladiador_URL: imgMap.get(cpfN) || null }));
