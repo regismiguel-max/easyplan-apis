@@ -21,6 +21,7 @@ const allowedOrigins = [
     'ionic://app.easyplan.com.br',
     'http://10.61.1.191:8100',
     'http://10.61.1.211:8100',
+    'https://easyplan.com.br'
 ];
 
 const corsOptions = {

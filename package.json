@@ -61,6 +61,7 @@
     "nodemailer": "^6.9.14",
     "openai": "^4.104.0",
     "pdf-parse": "^1.1.1",
+    "puppeteer": "^24.22.3",
     "sequelize": "^6.37.0",
     "shortid": "^2.2.16",
     "swagger-ui-express": "^5.0.1",
