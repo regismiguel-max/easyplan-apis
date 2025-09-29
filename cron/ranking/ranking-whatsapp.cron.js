@@ -226,7 +226,7 @@ async function loadRankMes(vigenciaMonth) {
 
 // CRON: todo dia às 09:00 na timezone de São Paulo
 const jobRankingWhatsApp = new CronJob(
-    "0 30 9 * * *",
+    "0 30 9 * * 1-5",
     async () => {
         try {
             const month = resolveVigenciaMonth(nowInSaoPaulo());
