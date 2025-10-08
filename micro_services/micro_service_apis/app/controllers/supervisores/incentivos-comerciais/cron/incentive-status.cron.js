@@ -8,7 +8,7 @@ function todayDateOnly() {
   return new Date(new Date().toISOString().split("T")[0]);
 }
 
-cron.schedule('* 13 * * *', async () => {
+cron.schedule('* 14 * * *', async () => {
   const today = todayDateOnly();
 
   console.log(`[CRON] Rodando atualização de incentivos em ${today.toISOString().split('T')[0]}`);
