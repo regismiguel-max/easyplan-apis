@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const db = require("../../../../../../../models");
+const PlaniumPropostaService = require("../services/planium-propostas.service");
 
 const { Op, where } = require("sequelize");
 
@@ -7,7 +8,7 @@ function todayDateOnly() {
   return new Date(new Date().toISOString().split("T")[0]);
 }
 
-cron.schedule('* 12 * * *', async () => {
+cron.schedule('* 13 * * *', async () => {
   const today = todayDateOnly();
 
   console.log(`[CRON] Rodando atualização de incentivos em ${today.toISOString().split('T')[0]}`);
@@ -51,6 +52,27 @@ cron.schedule('* 12 * * *', async () => {
         )
       }
     );
+
+    // Calcular resultado para desafios encerrados e sem resultado ainda
+    const encerradosDBButNotFinallyzed = await db.incentives.findAll({
+      where: {
+        status: 'Encerrado',
+        resultado_desafio: { [Op.is]: null } // só os que ainda não têm resultado
+      },
+    });
+    const encerradosButNotFinallyzed = encerradosDBButNotFinallyzed.map((proposta) => proposta.get({ plain: true }));
+
+    for(const incentive of encerradosButNotFinallyzed) {
+      const planiumPayload = {
+        startDate: incentive.start_challenge_date,
+        endDate: incentive.end_challenge_date,
+        cnpj: incentive.cnpj,
+        id: incentive.id,
+      }
+
+      const planiumPropostaService = new PlaniumPropostaService();
+      planiumPropostaService.getPropostas(planiumPayload);
+    }
 
     // Calcular resultado para desafios encerrados e sem resultado ainda
     const encerradosDB = await db.incentives.findAll({
