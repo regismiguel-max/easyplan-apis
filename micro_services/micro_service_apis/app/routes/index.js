@@ -92,7 +92,7 @@ require('./ranking/topvendidas.routes.js')(app);
 // require('./duelos/produtores-duel-audit.js')(app);
 // require('./duelos/produtores-duel-upload.js')(app);
 
-// require('./streams/streams.routes.js')(app);
-// require('./streams/streams.proxy.routes.js')(app);
+require('./streams/streams.routes.js')(app);
+require('./streams/streams.proxy.routes.js')(app);
 
 module.exports = app;

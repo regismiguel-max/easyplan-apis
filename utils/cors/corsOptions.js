@@ -23,6 +23,8 @@ const allowedOrigins = [
     'http://10.61.1.211:8100',
     'https://easyplan.com.br',
     'https://www.easyplan.com.br',
+    'https://*.lovableproject.com',
+    'https://*.lovable.app',
 ];
 
 const corsOptions = {

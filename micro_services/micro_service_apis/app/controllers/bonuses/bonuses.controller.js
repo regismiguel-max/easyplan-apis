@@ -260,36 +260,36 @@ exports.findBonuseDigitalSaudeSearch = (req, res) => {
                 });
             }
             else {
-                Bonuse.findOne(
-                    {
-                        where: {
-                            dataLancamento: req.body.dataLancamento,
-                            documento: req.body.documento,
-                            numeroParcela: req.body.numeroParcela,
-                        }
-                    }
-                )
-                    .then(bon => {
-                        if (bon) {
-                            res.send({
-                                bonuse: true,
-                                sucesso: true
-                            });
-                        }
-                        else {
+                // Bonuse.findOne(
+                //     {
+                //         where: {
+                //             dataLancamento: req.body.dataLancamento,
+                //             documento: req.body.documento,
+                //             numeroParcela: req.body.numeroParcela,
+                //         }
+                //     }
+                // )
+                //     .then(bon => {
+                //         if (bon) {
+                //             res.send({
+                //                 bonuse: true,
+                //                 sucesso: true
+                //             });
+                //         }
+                //         else {
                             res.send({
                                 bonuse: false,
                                 sucesso: true
                             });
-                        }
+                    //     }
 
-                    })
-                    .catch(err => {
-                        res.status(500).send({
-                            message: err.message,
-                            sucesso: false
-                        })
-                    })
+                    // })
+                    // .catch(err => {
+                    //     res.status(500).send({
+                    //         message: err.message,
+                    //         sucesso: false
+                    //     })
+                    // })
             }
 
         })

@@ -589,7 +589,7 @@ sendMessageAPIOficial = async (req, res) => {
 };
 
 sendMessageBatalha = async () => {
-    const numeros = ['54992389702', '61993598991', '61981443333'];
+    const numeros = ['54992389702', '61993598991'];
     numeros.forEach(async element => {
         await axios.post('https://afinidade.atenderbem.com/int/enqueueMessageToSend', {
             queueId: 20,
