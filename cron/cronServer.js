@@ -4,8 +4,14 @@ const fs = require('fs');
 const moment = require('moment');
 const { jobHorariosFixos, jobDezesseteTrinta } = require('./push/pushBoletos.cron.js');
 const { jobVerifyStatusPaymentSwile } = require('./swile/swileStatusPayment.cron.js');
-const { jobRanking } =require('./ranking/ranking.cron.js') 
-const { jobRankingWhatsApp } =require('./ranking/ranking-whatsapp.cron.js') 
+const { jobRanking } = require('./ranking/ranking.cron.js')
+const { jobRankingWhatsApp } = require('./ranking/ranking-whatsapp.cron.js')
+const {
+    jobExpirePendings,
+    jobSettleFinished,
+    jobUpdateVigenciaRanking,
+    jobUpdateCycleRanking
+} = require('./duelo/produtores-duel-cron.js');
 
 // Inicialização dos cron jobs
 jobHorariosFixos.start();
@@ -15,6 +21,11 @@ jobVerifyStatusPaymentSwile.start();
 jobRanking.start();
 
 jobRankingWhatsApp.start();
+
+// jobExpirePendings.start();
+// jobSettleFinished.start();
+// jobUpdateVigenciaRanking.start();
+// jobUpdateCycleRanking.start();
 
 console.log('⏱️ Cron server iniciado.');
 
