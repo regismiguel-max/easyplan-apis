@@ -44,19 +44,19 @@ module.exports = (app) => {
         SELECT 
           d.id,
           d.cycle_id,
-          c.name AS ciclo_name,
+          c.name AS cycle_name,
           v.name AS vigencia_name,
           d.status,
           d.percent,
           d.end_date,
           d.created_at,
-          pc.nome AS desafiante,
-          pc.cpf AS desafiante_cpf,
-          po.nome AS desafiado,
-          po.cpf AS desafiado_cpf,
+          pc.nome AS challenger_nome,
+          pc.cpf AS challenger_cpf,
+          po.nome AS challenged_nome,
+          po.cpf AS challenged_cpf,
           COALESCE((
-            SELECT SUM(e.amount_locked) 
-            FROM produtores_duel_escrow e 
+            SELECT SUM(e.amount_locked)
+            FROM produtores_duel_escrow e
             WHERE e.duel_id = d.id
           ), 0) AS aposta
         FROM produtores_duel d
@@ -67,7 +67,7 @@ module.exports = (app) => {
         ${where}
         ORDER BY d.id DESC
         LIMIT 300
-        `,
+      `,
                 params
             );
 
@@ -89,11 +89,14 @@ module.exports = (app) => {
 
         try {
             if (!["vigencia", "ciclo"].includes(tipo)) {
-                return res.status(400).json({ ok: false, mensagem: "Tipo inválido (use vigencia ou ciclo)" });
+                return res.status(400).json({
+                    ok: false,
+                    mensagem: "Tipo inválido (use vigencia ou ciclo)",
+                });
             }
 
             let query = "";
-            let params = [];
+            const params = [];
 
             if (tipo === "vigencia") {
                 query = `
@@ -122,7 +125,7 @@ module.exports = (app) => {
           SELECT 
             r.id,
             r.cycle_id,
-            c.name AS ciclo_name,
+            c.name AS cycle_name,
             r.broker_id,
             r.nome,
             r.cpf,
@@ -152,7 +155,7 @@ module.exports = (app) => {
     });
 
     // ============================================================
-    // 🔹 RESUMO GERAL (para dashboards futuros)
+    // 🔹 RESUMO GERAL (para filtros e dashboards)
     // ============================================================
     router.get("/resumo", async (_req, res, next) => {
         const conn = await pool.getConnection();
@@ -168,7 +171,19 @@ module.exports = (app) => {
         FROM produtores_duel
       `);
 
-            res.json({ ok: true, resumo: totais });
+            const [ciclos] = await conn.query(`
+        SELECT id, name, start_date, end_date
+        FROM produtores_duel_cycle
+        ORDER BY id DESC
+      `);
+
+            const [vigencias] = await conn.query(`
+        SELECT id, cycle_id, name, start_date, end_date
+        FROM produtores_duel_vigencia
+        ORDER BY id DESC
+      `);
+
+            res.json({ ok: true, resumo: totais, ciclos, vigencias });
         } catch (err) {
             next(err);
         } finally {
