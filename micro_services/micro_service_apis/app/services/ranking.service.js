@@ -7,9 +7,15 @@ const axiosCfg = require("../config/axios/axios.config");
 const UF_NACIONAL = 'NA';
 const OPERADORA_GERAL = 'GERAL';
 
+const { exportDebugCsv } = require('../utils/exportDebug.util');
+
 // ---------- helpers ----------
 const normDigits = (s) => String(s || '').replace(/\D+/g, '');
 const normContrato = (s) => String(s ?? '').replace(/\s+/g, '');
+const normId = (s) => String(s ?? '')
+  .trim()
+  .toUpperCase()
+  .replace(/[\s\.\-_/]/g, '');
 
 const parseMoneyToCents = (s) => {
   if (s == null) return 0;
@@ -54,12 +60,13 @@ const guessUF = (row) => {
 const resolvePago = (st) => {
   if (!st) return false;
   if (st === true) return true;
-  if (typeof st === 'object') {
-    if (st.primeiraFaturaPaga === true) return true;
-    if (Array.isArray(st)) return st.length > 0;
-    if (Array.isArray(st.faturas)) return st.faturas.length > 0;
-    if (typeof st.length === 'number') return st.length > 0;
-  }
+  if (st.length > 0) return true;
+  // if (typeof st === 'object') {
+  //   if (st.primeiraFaturaPaga === true) return true;
+  //   if (Array.isArray(st)) return st.length > 0;
+  //   if (Array.isArray(st.faturas)) return st.faturas.length > 0;
+  //   if (typeof st.length === 'number') return st.length > 0;
+  // }
   return false;
 };
 
@@ -76,9 +83,9 @@ const debugMatchCpf = (cpf) => {
 // -----------------------------
 
 class RankingService {
-  constructor({ paralelo = 6, soTitular = false } = {}) {
+  constructor({ paralelo = 2, soTitular = false } = {}) {
     this.db = require(path.resolve(__dirname, "../../../../models"));
-    this.paralelo = Number(paralelo || 6);
+    this.paralelo = Number(paralelo || 2);
     this.soTitular = !!soTitular;
 
     this.ds = new DigitalSaudeClient();
@@ -101,10 +108,15 @@ class RankingService {
     this._operSet = null;           // Set de nomes de operadora (exatos)
 
     // DNV limits
-    this.dnvConcurrency = Number(process.env.DNV_CONCURRENCY || 4);
-    this.dnvMinDelay = Number(process.env.DNV_MIN_DELAY_MS || 150);
+    this.dnvConcurrency = Number(process.env.DNV_CONCURRENCY || 1);
+    this.dnvMinDelay = Number(process.env.DNV_MIN_DELAY_MS || 750);
 
     this.allowNullSupervisor = '1';
+
+    this.faturasLimiter = withRateLimit({
+      concurrency: Number(process.env.FATURAS_CONCURRENCY || 1),
+      minDelayMs: Number(process.env.FATURAS_MIN_DELAY_MS || 900),
+    });
   }
 
   // -------- exclusões --------
@@ -167,60 +179,24 @@ class RankingService {
     return this._operSet;
   }
 
-  // -------- contrato pago (com cache SOMENTE para pagamentos true) --------
+  // -------- contrato pago (sempre consultar com rate-limit; sem cache) --------
   async _getContratoPagoComCache(cod) {
     const key = String(cod || '').trim();
     if (!key) return false;
 
-    // cache em memória: só guardamos true
-    if (this._pagoCache.has(key)) return this._pagoCache.get(key) === true;
-
-    // tenta cache no banco: se existir e for true -> retorna; se false -> IGNORA e reconsulta API
-    if (this.tblCache) {
-      try {
-        const row = await this.tblCache.findOne({ where: { codigo_contrato: key }, raw: true });
-        const cachedTrue = !!(row?.status_pago ?? row?.pago ?? row?.conf_pagamento);
-        if (cachedTrue) {
-          this._pagoCache.set(key, true);
-          return true;
-        }
-        // se estava false no banco, ignora e segue pra API
-      } catch { /* ignore e segue pra API */ }
-    }
-
-    // consulta API sempre que não houver true em cache
-    let pago = false;
-    let st; // para debug
+    let st = null;
     try {
-      st = await this.ds.consultarStatusFaturaPorContrato(key);
-      pago = resolvePago(st);
-
-      // cacheia somente "true"
-      if (pago) {
-        this._pagoCache.set(key, true);
-        if (this.tblCache) {
-          try {
-            await this.tblCache.upsert({
-              codigo_contrato: key,
-              status_pago: true,
-              payload_json: null,
-              updated_at: new Date(),
-              created_at: new Date(),
-            });
-          } catch { /* ignore */ }
-        }
-      }
-    } catch { /* mantém false */ }
-
-    // DEBUG opcional
-    if (DEBUG_CONTRATO && debugMatchCpf('ANY')) {
-      try {
-        const preview = typeof st === 'object' ? JSON.stringify(st).slice(0, 2000) : String(st);
-        console.log('[RANK][DEBUG] payload status fatura (amostra) para contrato', key, preview);
-      } catch { }
+      // sempre consulta a API; usa rate-limit para não estourar
+      await this.faturasLimiter(async () => {
+        st = await this.ds.consultarStatusFaturaPorContrato(key);
+      });
+    } catch {
+      // em erro, consideramos "não pago" nesta execução
+      return false;
     }
 
-    return !!pago;
+    // st pode ser: [] (sem liquidadas), [ ... ] (pagas), ou null (erro interno já tratado)
+    return resolvePago(st);
   }
 
   async _getMetaByCpf(cpfRaw, sampleRow) {
@@ -295,6 +271,7 @@ class RankingService {
   async _coletarVendidasDNV({ inicio, fim, diaParaGrupo, whitelistSuper, whitelistOper }) {
     const CNPJ_OPERADORA = "27252086000104";
     const banStatus = new Set(['cancelado', 'cancelada', 'retificado', 'retificada']);
+    const CPF_DEBUG = '09781452161'; // alvo
     await this._loadExcluidosSet();
 
     const dnvLimiter = withRateLimit({ concurrency: this.dnvConcurrency, minDelayMs: this.dnvMinDelay });
@@ -322,6 +299,18 @@ class RankingService {
       if (Array.isArray(arr)) diag.propostas_total_api += arr.length;
 
       for (const it of (arr || [])) {
+        const vendedorCpfRaw = it?.vendedor_cpf;
+        const vendedorCpfDebug = (vendedorCpfRaw || '').replace(/\D/g, '');
+        const isAlvo = vendedorCpfDebug === CPF_DEBUG;
+
+        if (isAlvo && process.env.RANKING_DEBUG_DNV === '1') {
+          console.log('[DNV][DEBUG][PRE] id', it?.propostaID, {
+            uf: it?.uf, status: it?.status, contrato: it?.contrato,
+            date_sig: it?.date_sig, operadora: it?.metadados?.operadora_nome,
+            vendedores: { cpf: vendedorCpfRaw, nome: it?.vendedor_nome },
+            vigencia: it?.date_vigencia, beneficiarios: it?.beneficiarios
+          });
+        }
         const vendedorCpf = normDigits(it?.vendedor_cpf);
         if (!vendedorCpf) { diag.drop_sem_cpf_vendedor++; continue; }
         if (this._isExcluido(vendedorCpf)) { diag.drop_excluido++; continue; }
@@ -345,18 +334,18 @@ class RankingService {
 
         // operadora obrigatória + exata
         const operadoraNome = String(it?.metadados?.operadora_nome || '').trim();
-        if (!operadoraNome || !whitelistOper.has(operadoraNome)) { diag.drop_operadora++; continue; }
+        if (!operadoraNome || !whitelistOper.has(operadoraNome)) { if (isAlvo) console.log('[DNV][DROP] operadora', it?.propostaID, operadoraNome); diag.drop_operadora++; continue; }
 
         // filtros status/contrato/produto
         const st = toLower(it?.status);
-        if (banStatus.has(st)) { diag.drop_status++; continue; }
+        if (banStatus.has(st)) { if (isAlvo) console.log('[DNV][DROP] status', it?.propostaID, st); diag.drop_status++; continue; }
 
-        if (!(toLower(it?.contrato) === 'ad')) { diag.drop_cont_prod++; continue; }
+        if (!(toLower(it?.contrato) === 'ad')) { if (isAlvo) console.log('[DNV][DROP] contrato!=AD', it?.propostaID, it?.contrato); diag.drop_cont_prod++; continue; }
 
         // vigência: deve existir na tabela (modo estrito)
         const vigDia = toYMD(it?.date_vigencia);
-        if (!vigDia) { diag.drop_sem_vigencia++; continue; }
-        if (!diaParaGrupo.has(vigDia)) { diag.drop_vig_nao_mapeada++; continue; }
+        if (!vigDia) { if (isAlvo) console.log('[DNV][DROP] sem vigencia', it?.propostaID); diag.drop_sem_vigencia++; continue; }
+        if (!diaParaGrupo.has(vigDia)) { if (isAlvo) console.log('[DNV][DROP] vig_nao_mapeada', it?.propostaID, vigDia); diag.drop_vig_nao_mapeada++; continue; }
         const grupo = String(diaParaGrupo.get(vigDia)); // YYYY-MM do cadastro
 
         // beneficiários > 0
@@ -366,9 +355,25 @@ class RankingService {
         const totalValorCent = parseMoneyToCents(it?.total_valor);
         const vendedorNome = String(it?.vendedor_nome || '').trim();
 
-        // >>> MOD: titularCpf somente metadados[0]; fallback contratante_cpf
-        const titularCpf = normDigits(Array.isArray(it?.metadados?.titulares_cpf) ? it.metadados.titulares_cpf[0] : null)
-          || normDigits(it?.contratante_cpf);
+        // >>> NOVO: titularCpf a partir de metadados.titulares[0].cpf; fallback antigos + contratante_cpf
+        let titularCpf = null;
+
+        const meta = it?.metadados;
+
+        // novo formato: metadados.titulares: [{ cpf, nome, ... }]
+        if (Array.isArray(meta?.titulares) && meta.titulares.length > 0) {
+          titularCpf = normDigits(meta.titulares[0]?.cpf);
+        }
+
+        // legado: metadados.titulares_cpf: [ 'cpf1', 'cpf2', ... ]
+        if (!titularCpf && Array.isArray(meta?.titulares_cpf) && meta.titulares_cpf.length > 0) {
+          titularCpf = normDigits(meta.titulares_cpf[0]);
+        }
+
+        // fallback final: contratante_cpf
+        if (!titularCpf) {
+          titularCpf = normDigits(it?.contratante_cpf);
+        }
 
         items.push({
           propostaID: it?.propostaID, // auditoria
@@ -393,12 +398,14 @@ class RankingService {
     return { items, diag };
   }
 
-  // -------- resolve contrato por CPF (lista) priorizando proposta e status --------
+  // -------- resolve contrato por CPF (match ESTRITO por numeroProposta) --------
   async _resolverContratoCodigoPorCpf(cpf, opts = {}) {
     const c = normDigits(cpf);
-    const numeroPropostaAlvo = opts.numeroProposta ? String(opts.numeroProposta).trim() : null;
+    const numeroPropostaAlvoRaw = opts.numeroProposta ? String(opts.numeroProposta).trim() : null;
+    if (!c || !numeroPropostaAlvoRaw) return null;
 
-    if (!c) return null;
+    const alvo = normId(numeroPropostaAlvoRaw);
+
     try {
       const resp = await axiosCfg.https_digital.get("/contrato/procurarPorCpfTitular", {
         params: { cpf: c },
@@ -406,32 +413,24 @@ class RankingService {
       });
       if (!(resp.status >= 200 && resp.status < 300)) return null;
 
-      const data = resp.data;
-      const arr = Array.isArray(data) ? data : (data ? [data] : []);
+      const arr = Array.isArray(resp.data) ? resp.data : (resp.data ? [resp.data] : []);
       if (!arr.length) return null;
 
-      // 1) match por numeroProposta (DNV -> propostaID)
-      let chosen = numeroPropostaAlvo
-        ? arr.find(it => String(it?.numeroProposta || '').trim() === numeroPropostaAlvo) || null
-        : null;
-
-      // 2) senão, contrato Ativo
-      if (!chosen) {
-        chosen = arr.find(it => String(it?.statusContrato?.nome || '').toLowerCase() === 'ativo') || null;
-      }
-
-      // 3) fallback: primeiro
-      if (!chosen) chosen = arr[0];
+      const chosen = arr.find(it => normId(it?.numeroProposta) === alvo);
+      if (!chosen) return null;
 
       const codigo =
-        chosen?.codigo ??
-        chosen?.codigo_do_contrato ??
-        chosen?.codigoContrato ??
-        chosen?.contrato ??
-        null;
+        chosen?.codigo ?? chosen?.codigo_do_contrato ?? chosen?.codigoContrato ?? chosen?.contrato ?? null;
 
       const statusNome = String(chosen?.statusContrato?.nome || '').trim() || null;
-
+      if (!chosen && process.env.RANKING_DEBUG_CONTRATO === '1') {
+        const lista = arr.map(x => ({
+          codigo: x?.codigo || x?.codigo_do_contrato || x?.codigoContrato || x?.contrato,
+          numeroProposta: String(x?.numeroProposta || '').trim(),
+          status: x?.statusContrato?.nome
+        }));
+        console.log('[DIGITAL][NO-MATCH]', { cpf: c, numeroPropostaAlvo: numeroPropostaAlvo, contratos: lista });
+      }
       return codigo ? { codigo: String(codigo).trim(), statusNome } : null;
     } catch {
       return null;
@@ -457,7 +456,7 @@ class RankingService {
     const { items: dnvRows, diag: dnvDiag } = await this._coletarVendidasDNV({ inicio, fim, diaParaGrupo, whitelistSuper, whitelistOper });
 
     // >>> MOD: confirmação por LINHA (proposta) com limiter
-    const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 200 });
+    const limiter = withRateLimit({ concurrency: this.paralelo, minDelayMs: 500 });
     const diagContrato = { total_rows: dnvRows.length, contratos_found: 0, pagos_true: 0, pagos_false: 0 };
 
     await Promise.all(dnvRows.map(row => limiter(async () => {
@@ -473,6 +472,10 @@ class RankingService {
           contratoCodigo = res.codigo;
           statusContratoNome = res.statusNome || null;
         }
+      }
+
+      if (!titularCpf && process.env.RANKING_DEBUG_CONTRATO === '1') {
+        console.log('[RANK][WARN] linha sem titularCpf/contratante_cpf para proposta', numeroProposta);
       }
 
       // flags na linha
@@ -505,6 +508,67 @@ class RankingService {
 
     if (DEBUG_CONTRATO) {
       console.log('[RANK][DEBUG][RESUMO_CONTRATO_LINHA]', diagContrato);
+    }
+
+    // ============================================================
+    // >>> NOVO: GERAR CSV POR CPF/MÊS E SALVAR NO SERVIDOR <<<
+    // ============================================================
+    try {
+      const { exportDebugCsv } = require("../utils/exportDebug.util");
+
+      console.log("[RANK][DEBUG] Gerando CSVs por CPF/Mês...");
+
+      const grupos = {}; // chave = cpf_mes
+
+      for (const r of dnvRows) {
+        if (!r.vendedorCpf || !r.vigMes) continue;
+
+        const cpf = r.vendedorCpf.replace(/\D/g, "");
+        const mes = r.vigMes;
+        const chave = `${cpf}_${mes}`;
+
+        if (!grupos[chave]) grupos[chave] = { cpf, mes, rows: [] };
+        grupos[chave].rows.push(r);
+      }
+
+      for (const chave of Object.keys(grupos)) {
+        const { cpf, mes, rows } = grupos[chave];
+        try {
+          await exportDebugCsv(cpf, mes, rows);
+        } catch (err) {
+          console.error("[EXPORT DEBUG] Falha ao gerar CSV para", cpf, mes, err);
+        }
+      }
+
+      console.log("[RANK][DEBUG] CSVs por CPF/Mês gerados com sucesso!");
+    } catch (err) {
+      console.error("[RANK][DEBUG] Erro ao gerar CSVs por CPF/Mês:", err);
+    }
+    // ============================================================
+
+    if (DEBUG_CONTRATO) {
+      const cpfAlvo = '03046484186';
+      const mesAlvo = '2025-10                                                                                                                                                                                             ';
+      const rowsAlvo = dnvRows.filter(r =>
+        r.vendedorCpf && r.vendedorCpf.replace(/\D/g, '') === cpfAlvo &&
+        r.vigMes === mesAlvo
+      );
+      const resumo = rowsAlvo.map(r => ({
+        propostaID: r.propostaID,
+        vigDia: r.vigDia,
+        beneficiarios: r.beneficiarios,
+        _foundContrato: r._foundContrato,
+        _contratoCodigo: r._contratoCodigo,
+        _ativo: r._ativo,
+        _pago: r._pago,
+        titularCpf: r.titularCpf,
+        operadora: r.operadoraNome,
+        sup: r.supNome,
+      }));
+      console.log('[RANK][DEBUG] DIAG CPF/MES', cpfAlvo, mesAlvo, resumo);
+      const somaVidasPago = rowsAlvo.reduce((a, x) => a + (x._pago ? (x.beneficiarios || 0) : 0), 0);
+      const somaVidasAtivo = rowsAlvo.reduce((a, x) => a + (x._ativo ? (x.beneficiarios || 0) : 0), 0);
+      console.log('[RANK][DEBUG] SOMAS', { confirmadas: somaVidasPago, ativas: somaVidasAtivo });
     }
 
     // ===== Buckets por CPF (Geral) e por Operadora =====

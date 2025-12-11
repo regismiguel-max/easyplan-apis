@@ -62,6 +62,7 @@ require('./app/routes/digital_saude/fatura.routes')(app);
 require('./app/routes/digital_saude/lancamento.routes')(app);
 require('./app/routes/digital_saude/demonstrativo.routes')(app);
 require('./app/routes/digital_saude/zendesk.routes')(app);
+require('./app/routes/digital_saude/beneficiarios.routes')(app);
 
 const https_port = process.env.PORT || 3090;
 https.createServer(credentials, app).listen(https_port, () => { console.log('Server listening at https://localhost:' + https_port); });

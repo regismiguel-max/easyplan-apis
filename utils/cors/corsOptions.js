@@ -3,7 +3,6 @@ const allowedOrigins = [
     'https://localhost',
     'http://localhost:8080',
     'http://localhost:8100',
-    'http://localhost:8100/',
     'http://localhost:8101',
     'http://localhost:8102',
     'http://corretor.easyplan.com.br',
@@ -23,18 +22,33 @@ const allowedOrigins = [
     'http://10.61.1.211:8100',
     'https://easyplan.com.br',
     'https://www.easyplan.com.br',
-    'https://*.lovableproject.com',
-    'https://*.lovable.app',
 ];
 
 const corsOptions = {
     origin: (origin, callback) => {
-        if (allowedOrigins.includes(origin) || !origin) {
-            callback(null, true);
-        } else {
-            callback(new Error('Origin not allowed by CORS'));
+        console.log("CORS Origin solicitado:", origin);
+    
+        // Permite Postman, Insomnia, chamadas internas
+        if (!origin) {
+            return callback(null, true);
         }
-    }
+    
+        // Normaliza remoção de barra final
+        const cleanOrigin = origin.replace(/\/$/, "");
+    
+        // Se está na lista
+        if (allowedOrigins.includes(cleanOrigin)) {
+            return callback(null, true);
+        }
+    
+        // Permite qualquer subdomínio do lovable
+        if (cleanOrigin.endsWith('.lovable.app') || cleanOrigin.endsWith('.lovableproject.com')) {
+            return callback(null, true);
+        }
+    
+        return callback(new Error('Origin not allowed by CORS: ' + origin));
+    },
+    credentials: true
 };
 
 module.exports = corsOptions;

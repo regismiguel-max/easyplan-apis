@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const axios = require('axios');
 const mysql = require('mysql2/promise');
 const moment = require('moment');
-const { createLogger } = require('../utils/logs/logger');
+const { createLogger } = require('../../utils/logs/logger');
 
 const log = createLogger('cron', 'duels', 'produtores-duel-cron');
 
