@@ -1,4 +1,6 @@
 const allowedOrigins = [
+    //swagger docs
+    'http://localhost:3000',
     'http://localhost',
     'https://localhost',
     'http://localhost:8080',
