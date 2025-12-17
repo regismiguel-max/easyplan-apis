@@ -1,6 +1,7 @@
 # Diret�rios de depend�ncias
 node_modules/
 **/node_modules/
+./node_modules
 
 # Build e arquivos tempor�rios
 dist/
