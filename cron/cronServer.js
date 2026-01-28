@@ -20,7 +20,7 @@ jobVerifyStatusPaymentSwile.start();
 
 jobRanking.start();
 
-jobRankingWhatsApp.start();
+// jobRankingWhatsApp.start();
 
 jobExpirePendings.start();
 jobSettleFinished.start();

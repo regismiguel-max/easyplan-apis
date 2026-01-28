@@ -9,8 +9,8 @@ sendMessageCodeImage = async (req, res, code) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 20,
-            "apiKey": "9c35e41ff6224efba0f52ba47ecb51b9",
+            "queueId": 31,
+            "apiKey": "@qualizap@123",
             "number": req.body.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -59,8 +59,8 @@ sendMessagePayAnalise = async (name, whatsapp) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 20,
-            "apiKey": "9c35e41ff6224efba0f52ba47ecb51b9",
+            "queueId": 31,
+            "apiKey": "@qualizap@123",
             "number": whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -110,8 +110,8 @@ sendMessagePayErro = async (SwileRequest) => {
                         axios.post(
                             'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                             {
-                                "queueId": 20,
-                                "apiKey": "9c35e41ff6224efba0f52ba47ecb51b9",
+                                "queueId": 31,
+                                "apiKey": "@qualizap@123",
                                 "number": user.celular,
                                 "country": "+55",
                                 "fileId": 77825,
@@ -166,8 +166,8 @@ sendMessagePayProcessado = async (SwileRequest) => {
                         axios.post(
                             'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                             {
-                                "queueId": 20,
-                                "apiKey": "9c35e41ff6224efba0f52ba47ecb51b9",
+                                "queueId": 31,
+                                "apiKey": "@qualizap@123",
                                 "number": user.celular,
                                 "country": "+55",
                                 "fileId": 77825,
@@ -216,8 +216,8 @@ sendMessagePayPago = async (payment) => {
                 axios.post(
                     'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                     {
-                        "queueId": 20,
-                        "apiKey": "9c35e41ff6224efba0f52ba47ecb51b9",
+                        "queueId": 31,
+                        "apiKey": "@qualizap@123",
                         "number": user.celular,
                         "country": "+55",
                         "fileId": 77825,

@@ -14,10 +14,19 @@ const allowedOrigins = [
 const corsOptions = {
   origin: (origin, callback) => {
     if (allowedOrigins.includes(origin) || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Origin not allowed by CORS'));
+      return callback(null, true);
+      // add return pra evitar loop
     }
+
+    const cleanOrigin = origin.replace(/\/$/, "");
+    
+    if (cleanOrigin.endsWith('.lovable.app') || cleanOrigin.endsWith('.lovableproject.com')) {
+      return callback(null, true);
+    }
+    
+    
+    return callback(new Error('Origin not allowed by CORS'));
+    
   }
 };
 

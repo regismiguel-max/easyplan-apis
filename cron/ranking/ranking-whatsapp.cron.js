@@ -76,7 +76,7 @@ async function findWhatsappByCpf(cpf) {
 
     const whats = normDigits(contato?.whatsapp);
     return whats || null;
-}
+} 
 
 // Envio de WhatsApp por grupo (stubs) — plugue aqui seu serviço real
 async function sendWhatsAppTop1(items) { return sendWhatsAppByGroup("TOP 1", items); }
@@ -143,8 +143,8 @@ async function sendWhatsAppByGroup(groupLabel, items) {
             const message = (buildMessage(groupLabel) || "").trim();
 
             await axios.post(API_URL, {
-                queueId: 20,
-                apiKey: "9c35e41ff6224efba0f52ba47ecb51b9",
+                queueId: 31,
+                apiKey: "@qualizap@123",
                 number: whatsappNumber,
                 country: "+55",
                 text: message,
@@ -197,8 +197,8 @@ async function loadRankMes(vigenciaMonth) {
                 axios.post(
                     'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                     {
-                        queueId: 20,
-                        apiKey: "9c35e41ff6224efba0f52ba47ecb51b9", // <— use env
+                        queueId: 31,
+                        apiKey: "@qualizap@123", // <— use env
                         number: element,
                         country: "+55",
                         text: `📢 Olá, o ranking individual de cada produtor foi enviado com sucesso!`,

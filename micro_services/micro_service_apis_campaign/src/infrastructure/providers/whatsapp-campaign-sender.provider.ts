@@ -50,7 +50,7 @@ export default class WhatsappCampaignSender implements ICampaignSenderStrategy {
                     response = await axios.post(
                         this.kaulizURL,
                         {
-                            "queueId": 20,
+                            "queueId": 31,
                             "apiKey": this.kaulizApiKey,
                             "number": messageKauliz.number,
                             "country": messageKauliz.country,
@@ -65,7 +65,7 @@ export default class WhatsappCampaignSender implements ICampaignSenderStrategy {
                     response = await axios.post(
                         this.kaulizURL,
                         {
-                            "queueId": 20,
+                            "queueId": 31,
                             "apiKey": this.kaulizApiKey,
                             "number": messageKauliz.number,
                             "country": messageKauliz.country,
