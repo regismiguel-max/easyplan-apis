@@ -51,8 +51,8 @@ sendMessageLinkPreview = async (req, res) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "urlButtonConfig": {
@@ -115,8 +115,8 @@ sendMessageLinkDocument = async (req, res) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -172,8 +172,8 @@ sendMessageSituacao = async (req, res, co) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -199,8 +199,8 @@ sendMessageSituacaoProdutor = async (req, res, pro) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -257,8 +257,8 @@ sendMessageLink = async (req, res) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "text": `${req.message}
@@ -331,8 +331,8 @@ sendMessageLinkImage = async (req, res, cnpj) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -391,8 +391,8 @@ sendMessageLinkImageProdutor = async (req, res, cpf) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -448,8 +448,8 @@ sendMessageAlertLote = async (req) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -593,7 +593,7 @@ sendMessageBatalha = async () => {
     numeros.forEach(async element => {
         await axios.post('https://afinidade.atenderbem.com/int/enqueueMessageToSend', {
             queueId: 20,
-            apiKey: "@qualizap@123",
+            apiKey: "4c5067c17b94efdaf00ed63177b3c2c",
             number: element,
             country: "+55",
             text: `📢 Olá, a Batalha Easy — Heróis que fazem a diferença foi atualizada com sucesso!`,

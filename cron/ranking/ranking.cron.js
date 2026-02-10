@@ -51,7 +51,7 @@ const jobRanking = new CronJob(
         await gerarRanking();
     },
     null,
-    true, // inicia automaticamente
+    false, // inicia automaticamente
     TZ
 );
 

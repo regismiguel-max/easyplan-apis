@@ -123,6 +123,7 @@ db.rk_operadoras = require('./ranking/ranking_operadora.model')(sequelize, Seque
 db.rk_exclusoes = require('./ranking/ranking_exclusao.model')(sequelize, Sequelize.DataTypes);
 db.rk_cache_contrato_status = require("./ranking/ranking_cache_contrato_status.model.js")(sequelize, Sequelize.DataTypes);
 
+db.automation_propostas = require('./automation/propostas.model.js')(sequelize, Sequelize.DataTypes);
 
 db.role.belongsToMany(db.user, {
     through: "user_role",

@@ -18,14 +18,14 @@ jobHorariosFixos.start();
 // jobDezesseteTrinta.start();
 jobVerifyStatusPaymentSwile.start();
 
-jobRanking.start();
+// jobRanking.start();
 
 // jobRankingWhatsApp.start();
 
-jobExpirePendings.start();
-jobSettleFinished.start();
-jobUpdateVigenciaRanking.start();
-jobUpdateCycleRanking.start();
+// jobExpirePendings.start();
+// jobSettleFinished.start();
+// jobUpdateVigenciaRanking.start();
+// jobUpdateCycleRanking.start();
 
 console.log('⏱️ Cron server iniciado.');
 

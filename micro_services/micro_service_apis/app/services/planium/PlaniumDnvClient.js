@@ -1,4 +1,6 @@
 const axiosCfg = require("../../config/axios/axios.config");
+const db = require("../../../../../models");
+const Propostas = db.automation_propostas;
 
 class PlaniumDnvClient {
     constructor() {
@@ -80,9 +82,23 @@ class PlaniumDnvClient {
     }
 
     async consultarPeriodo({ cnpj_operadora, data_inicio, data_fim }) {
-        const resp = await this.inst.post("proposta/consulta/v1", {
-            cnpj_operadora, data_inicio, data_fim
-        }, { validateStatus: s => s >= 200 && s < 300 });
+        let resp;
+
+        if (typeof data_inicio === "string" && data_inicio <= "2025-10-31") {
+            const Op = (db.Sequelize && db.Sequelize.Op) || require("sequelize").Op;
+
+            const rows = await Propostas.findAll({
+                where: {
+                    date_sig: { [Op.between]: [data_inicio, data_fim] },
+                },
+            });
+
+            resp = { data: rows };
+        } else {
+            resp = await this.inst.post("proposta/consulta/v1", {
+                cnpj_operadora, data_inicio, data_fim
+            }, { validateStatus: s => s >= 200 && s < 300 });
+        }
 
         const arr = this._normalize(resp);
         if (process.env.RANKING_DEBUG_DNV === '1') {

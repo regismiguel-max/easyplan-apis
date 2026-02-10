@@ -6,8 +6,8 @@ sendMessageCodeImage = async (req, res, code) => {
     axios.post(
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
-            "queueId": 31,
-            "apiKey": "@qualizap@123",
+            "queueId": 16,
+            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "fileId": 77825,

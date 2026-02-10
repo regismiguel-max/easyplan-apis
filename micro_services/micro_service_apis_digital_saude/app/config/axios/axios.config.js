@@ -63,7 +63,30 @@ const httpsDigitalInstance = createInstance({
     senhaApi: process.env.DIGITAL_SENHA_API || process.env.SENHA_API || process.env.senhaApi,
 });
 
+
+const createInstanceSupaBase = ({ baseURL, token }) => {
+    const headers = {};
+    if (token) headers['x-api-key'] = token;
+
+    headers['Content-Type'] = 'application/json';
+
+    return axios.create({
+        baseURL,
+        headers,
+        timeout: HTTP_TIMEOUT_MS,
+        httpAgent: buildHttpAgent(),
+        httpsAgent: buildHttpsAgent(),
+        // validateStatus: s => s >= 200 && s < 300, // default
+    });
+};
+
+const httpsSupaBaseInstance = createInstanceSupaBase({
+    baseURL: process.env.BASEURL_SUPABASE,
+    token: process.env.SUPABASE_TOKEN,
+});
+
 module.exports = {
     https: httpsInstance,              // contratos (contrato/procurarPorCpfTitular)
-    https_digital: httpsDigitalInstance // faturas (/fatura/...)
+    https_digital: httpsDigitalInstance, // faturas (/fatura/...)
+    https_supabase: httpsSupaBaseInstance
 };

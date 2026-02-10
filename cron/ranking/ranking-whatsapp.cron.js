@@ -143,8 +143,8 @@ async function sendWhatsAppByGroup(groupLabel, items) {
             const message = (buildMessage(groupLabel) || "").trim();
 
             await axios.post(API_URL, {
-                queueId: 31,
-                apiKey: "@qualizap@123",
+                queueId: 16,
+                apiKey: "4c5067c17b94efdaf00ed63177b3c2c",
                 number: whatsappNumber,
                 country: "+55",
                 text: message,
@@ -197,8 +197,8 @@ async function loadRankMes(vigenciaMonth) {
                 axios.post(
                     'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                     {
-                        queueId: 31,
-                        apiKey: "@qualizap@123", // <— use env
+                        queueId: 16,
+                        apiKey: "4c5067c17b94efdaf00ed63177b3c2c", // <— use env
                         number: element,
                         country: "+55",
                         text: `📢 Olá, o ranking individual de cada produtor foi enviado com sucesso!`,
@@ -237,7 +237,7 @@ const jobRankingWhatsApp = new CronJob(
         }
     },
     null,
-    true,
+    false,
     "America/Sao_Paulo"
 );
 
