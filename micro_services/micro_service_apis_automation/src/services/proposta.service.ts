@@ -14,7 +14,7 @@ export class PropostaService {
         const hoje = moment().tz("America/Sao_Paulo");
         const tresMesesAtras = hoje.clone().subtract(3, "months");
 
-        const statusList = ["implantada", "integracao"];
+        const statusList = ["implantada", "integracao", "analisada"];
         const dias: string[] = [];
 
         let atual = tresMesesAtras.clone();
