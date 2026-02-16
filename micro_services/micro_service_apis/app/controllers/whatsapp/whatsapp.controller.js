@@ -52,7 +52,7 @@ sendMessageLinkPreview = async (req, res) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "urlButtonConfig": {
@@ -116,7 +116,7 @@ sendMessageLinkDocument = async (req, res) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -173,7 +173,7 @@ sendMessageSituacao = async (req, res, co) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -200,7 +200,7 @@ sendMessageSituacaoProdutor = async (req, res, pro) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -258,7 +258,7 @@ sendMessageLink = async (req, res) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "text": `${req.message}
@@ -332,7 +332,7 @@ sendMessageLinkImage = async (req, res, cnpj) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -392,7 +392,7 @@ sendMessageLinkImageProdutor = async (req, res, cpf) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -449,7 +449,7 @@ sendMessageAlertLote = async (req) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.whatsapp,
             "country": "+55",
             "fileId": 77825,
@@ -593,7 +593,7 @@ sendMessageBatalha = async () => {
     numeros.forEach(async element => {
         await axios.post('https://afinidade.atenderbem.com/int/enqueueMessageToSend', {
             queueId: 20,
-            apiKey: "4c5067c17b94efdaf00ed63177b3c2c",
+            apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
             number: element,
             country: "+55",
             text: `📢 Olá, a Batalha Easy — Heróis que fazem a diferença foi atualizada com sucesso!`,

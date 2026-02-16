@@ -7,7 +7,7 @@ sendMessageCodeImage = async (req, res, code) => {
         'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
         {
             "queueId": 16,
-            "apiKey": "4c5067c17b94efdaf00ed63177b3c2c",
+            "apiKey": "4c5067c17b494efdaf00ed63177b3c2c",
             "number": req.body.whatsapp,
             "country": "+55",
             "fileId": 77825,

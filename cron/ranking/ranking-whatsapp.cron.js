@@ -144,7 +144,7 @@ async function sendWhatsAppByGroup(groupLabel, items) {
 
             await axios.post(API_URL, {
                 queueId: 16,
-                apiKey: "4c5067c17b94efdaf00ed63177b3c2c",
+                apiKey: "4c5067c17b494efdaf00ed63177b3c2c",
                 number: whatsappNumber,
                 country: "+55",
                 text: message,
@@ -198,7 +198,7 @@ async function loadRankMes(vigenciaMonth) {
                     'https://afinidade.atenderbem.com/int/enqueueMessageToSend',
                     {
                         queueId: 16,
-                        apiKey: "4c5067c17b94efdaf00ed63177b3c2c", // <— use env
+                        apiKey: "4c5067c17b494efdaf00ed63177b3c2c", // <— use env
                         number: element,
                         country: "+55",
                         text: `📢 Olá, o ranking individual de cada produtor foi enviado com sucesso!`,
