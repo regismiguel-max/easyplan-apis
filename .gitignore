@@ -1,4 +1,4 @@
-# Diret�rios de depend�ncias
+﻿# Diret�rios de depend�ncias
 node_modules/
 **/node_modules/
 ./node_modules
@@ -19,10 +19,17 @@ Thumbs.db
 .env.*
 
 # Certificados SSL
-sslcert/
+micro_services/micro_service_apis_campaign/src/sslcert/*
+
+# Permitir somente o loader (código)
+!micro_services/micro_service_apis_campaign/src/sslcert/loadSSLCampaign.ts
+
+# Ignorar extensões sensíveis
 *.crt
 *.key
 *.pem
+
+
 
 # Uploads e arquivos enviados
 uploads/
