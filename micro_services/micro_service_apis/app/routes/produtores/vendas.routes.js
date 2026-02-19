@@ -1,6 +1,6 @@
 const { authJwt } = require("../../middleware");
 const controller = require("../../controllers/produtores/vendas.controller");
-
+const controllerTeste = require("../../controllers/produtores/vendasTeste.controller")
 
 module.exports = (app) => {
     app.use(function (err, req, res, next) {
@@ -14,5 +14,10 @@ module.exports = (app) => {
     app.post(
         "/produtor/vendas/buscarPorCPFNome",
         controller.buscarPorCPFNome
+    );
+
+    app.post(
+        "/produtor/vendas/testeClienteCorretor",
+        controllerTeste.buscarPorCPFNome
     );
 };
